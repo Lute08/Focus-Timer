@@ -104,6 +104,26 @@ body>*{position:relative;z-index:1}body::before{background-image:var(--little-fo
 .note-dialog{display:none;position:fixed;inset:0;z-index:50;background:#171b1977;align-items:center;justify-content:center;padding:18px}.note-dialog.open{display:flex}.note-dialog-card{width:min(440px,100%);background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 20px 60px #0004}.note-dialog-card h3{margin:0 0 12px;font-family:Georgia,serif}.note-dialog-card label{display:block;font-size:.85rem;font-weight:650;margin:10px 0 5px}.note-dialog textarea{min-height:95px;resize:vertical}.note-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.note-dialog-actions button{padding:9px 13px;border-radius:10px;border:1px solid var(--line);cursor:pointer}.note-dialog-actions .save-note{background:var(--sage);color:white;border-color:var(--sage)}
 @media(max-width:600px){.calendar-day{min-height:48px}.calendar-grid{gap:4px}.calendar-day .day-number{font-size:.82rem}.streak-strip{align-items:flex-start}.calendar-head{align-items:flex-start;flex-wrap:wrap}}
 
+
+/* Ajustes de interacción y animaciones */
+:root{scroll-behavior:smooth}
+body,.panel,.streak-strip,.options-card,.note-dialog-card,.action,.calendar-day,.calendar-icon-button{
+  transition:background-color .28s ease,color .28s ease,border-color .28s ease,box-shadow .28s ease,transform .22s ease,opacity .22s ease;
+}
+button{transition:background-color .2s ease,color .2s ease,border-color .2s ease,transform .18s ease,box-shadow .2s ease}
+button:not(:disabled):active{transform:scale(.96)}
+button:not(:disabled):hover{filter:brightness(.98)}
+.streak-tools{display:flex;align-items:center;gap:13px}
+.calendar-icon-button{width:37px;height:37px;display:grid;place-items:center;border:1px solid var(--line);border-radius:11px;background:var(--paper2);color:var(--ink);cursor:pointer}
+.calendar-icon-button svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.extra-panel[hidden]{display:none!important}
+.extra-panel.calendar-opening{animation:calendarIn .32s cubic-bezier(.2,.8,.2,1) both}
+@keyframes calendarIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.calendar-day:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 5px 12px #00000012}
+.options-panel.open .options-card,.note-dialog.open .note-dialog-card{animation:modalIn .24s cubic-bezier(.2,.8,.2,1) both}
+@keyframes modalIn{from{opacity:0;transform:translateY(9px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
 </style>
 </head>
 <body data-theme="day">
@@ -182,9 +202,14 @@ body>*{position:relative;z-index:1}body::before{background-image:var(--little-fo
 
 <section class="streak-strip" aria-live="polite">
   <div class="streak-main"><span class="streak-flame">🔥</span><div><div><span class="streak-number" id="streakCurrent">0</span> <span id="streakLabel">días de racha</span></div><div class="streak-caption" id="streakSub">Completa un bloque de estudio para empezar</div></div></div>
-  <div class="streak-best"><span id="bestStreakLabel">Mejor racha:</span> <strong id="streakBest">0</strong> <span id="bestDaysLabel">días</span></div>
+  <div class="streak-tools">
+    <div class="streak-best"><span id="bestStreakLabel">Mejor racha:</span> <strong id="streakBest">0</strong> <span id="bestDaysLabel">días</span></div>
+    <button class="calendar-icon-button" id="calendarToggle" type="button" aria-label="Abrir calendario" aria-expanded="false" title="Calendario">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2.5"></rect><path d="M7.5 3v4M16.5 3v4M3.5 9.5h17"></path><path d="M8 13h2m4 0h2M8 17h2"></path></svg>
+    </button>
+  </div>
 </section>
-<section class="panel extra-panel" id="calendarPanel">
+<section class="panel extra-panel" id="calendarPanel" hidden>
   <div class="calendar-head">
     <h2 id="calendarTitle">Calendario de estudio</h2>
     <div class="calendar-nav">
@@ -344,8 +369,8 @@ function renderTimer() {
   document.getElementById('modeLabel').textContent = tr(state.mode === 'study' ? 'studyTime' : 'breakTime');
   studyTab.classList.toggle('active', state.mode === 'study');
   breakTab.classList.toggle('active', state.mode === 'break');
-  document.getElementById('studyValue').textContent = state.durations.study + ' ' + tr('minutes');
-  document.getElementById('breakValue').textContent = state.durations.break + ' ' + tr('minutes');
+  document.getElementById('studyValue').textContent = state.durations.study + ' min';
+  document.getElementById('breakValue').textContent = state.durations.break + ' min';
   startBtn.textContent = running ? tr('pause') : tr('start');
 }
 
@@ -498,372 +523,7 @@ function validVideoFromInput(input) {
 
 function setTheme(theme) {
   state.theme = theme === 'night' ? 'night' : 'day';
-  // ===== Rachas, calendario, notas, recordatorios, idiomas y fondos =====
-const I18N = {
-  es: {
-    options:'Opciones', language:'Idioma', background:'Color de fondo', ownImage:'Usar una imagen o GIF propio',
-    imageHint:'La imagen se guarda en este dispositivo. Los GIF mantienen su animación. Utiliza archivos de hasta 12 MB.',
-    removeImage:'Quitar imagen', streakDays:'días de racha', streakStart:'Completa un bloque de estudio para empezar',
-    streakActive:'¡Vas por buen camino!', best:'Mejor racha:', days:'días', calendar:'Calendario de estudio',
-    studyLegend:'Día con estudio completado', noteLegend:'Día con nota o recordatorio', selectDay:'Selecciona un día',
-    calendarHelp:'Haz clic derecho sobre un día para añadir una nota o un recordatorio.',
-    weekdays:['L','M','X','J','V','S','D'], addNote:'Añadir nota', addReminder:'Añadir recordatorio',
-    note:'Nota', reminder:'Recordatorio', notePlaceholder:'Escribe aquí...', reminderDate:'Fecha y hora del recordatorio',
-    cancel:'Cancelar', save:'Guardar', noNotes:'No hay notas para este día.', studyTime:'Tiempo de estudio',
-    breakTime:'Tiempo de descanso', start:'Empezar', pause:'Pausar', studyDone:'¡Bloque terminado! Toca descansar un poco.',
-    breakDone:'Descanso terminado. Vuelve al estudio cuando quieras.', paused:'Temporizador en pausa',
-    focusNow:'Tiempo para concentrarte', restNow:'Momento de descansar', readyStudy:'Listo para estudiar',
-    takeBreak:'Tómate un respiro', resetDone:'Temporizador reiniciado', dayMode:'Modo día', nightMode:'Modo noche',
-    noteSaved:'Nota guardada.', reminderSaved:'Recordatorio guardado.', imageTooBig:'La imagen supera los 12 MB.',
-    imageError:'No se ha podido guardar esa imagen.', reminderDue:'Tienes un recordatorio pendiente',
-    delete:'Eliminar', savedNote:'Nota', savedReminder:'Recordatorio', sessions:'bloques completados', studyTab:'✎ Estudio', breakTab:'☁ Descanso',
-    studyDuration:'Duración de estudio', breakDuration:'Duración de descanso', minutes:'min',
-    nowPlaying:'AHORA SONANDO', createPlaylist:'Crear lista', selectedPlaylist:'Lista seleccionada',
-    deletePlaylist:'Eliminar lista', addVideo:'Añadir vídeo', playlistPlaceholder:'Pega un enlace de YouTube para añadirlo...',
-    newPlaylistPlaceholder:'Nombre de la nueva lista...', footer:'Un espacio sencillo para avanzar a tu ritmo · Little Focus'
-  },
-  en: {
-    options:'Settings', language:'Language', background:'Background colour', ownImage:'Use your own image or GIF',
-    imageHint:'The image is saved on this device. GIFs keep their animation. Use files up to 12 MB.',
-    removeImage:'Remove image', streakDays:'day streak', streakStart:'Complete a study block to start',
-    streakActive:'You are keeping it going!', best:'Best streak:', days:'days', calendar:'Study calendar',
-    studyLegend:'Completed study day', noteLegend:'Day with a note or reminder', selectDay:'Select a day',
-    calendarHelp:'Right-click a day to add a note or reminder.',
-    weekdays:['M','T','W','T','F','S','S'], addNote:'Add note', addReminder:'Add reminder',
-    note:'Note', reminder:'Reminder', notePlaceholder:'Write here...', reminderDate:'Reminder date and time',
-    cancel:'Cancel', save:'Save', noNotes:'No notes for this day.', studyTime:'Study time',
-    breakTime:'Break time', start:'Start', pause:'Pause', studyDone:'Study block complete! Time for a break.',
-    breakDone:'Break finished. Return to studying when you are ready.', paused:'Timer paused',
-    focusNow:'Time to focus', restNow:'Time to take a break', readyStudy:'Ready to study',
-    takeBreak:'Take a break', resetDone:'Timer reset', dayMode:'Day mode', nightMode:'Night mode',
-    noteSaved:'Note saved.', reminderSaved:'Reminder saved.', imageTooBig:'The image is larger than 12 MB.',
-    imageError:'This image could not be saved.', reminderDue:'You have a reminder due',
-    delete:'Delete', savedNote:'Note', savedReminder:'Reminder', sessions:'completed blocks', studyTab:'✎ Study', breakTab:'☁ Break',
-    studyDuration:'Study duration', breakDuration:'Break duration', minutes:'min',
-    nowPlaying:'NOW PLAYING', createPlaylist:'Create playlist', selectedPlaylist:'Selected playlist',
-    deletePlaylist:'Delete playlist', addVideo:'Add video', playlistPlaceholder:'Paste a YouTube link to add it...',
-    newPlaylistPlaceholder:'New playlist name...', footer:'A simple space to make progress at your own pace · Little Focus'
-  },
-  zh: {
-    options:'设置', language:'语言', background:'背景颜色', ownImage:'使用自己的图片或 GIF',
-    imageHint:'图片保存在此设备上。GIF 会保持动画效果。请使用不超过 12 MB 的文件。',
-    removeImage:'移除图片', streakDays:'天连续学习', streakStart:'完成一个学习时段即可开始',
-    streakActive:'继续保持！', best:'最长连续记录：', days:'天', calendar:'学习日历',
-    studyLegend:'已完成学习的日期', noteLegend:'有笔记或提醒的日期', selectDay:'请选择一天',
-    calendarHelp:'右键点击日期即可添加笔记或提醒。',
-    weekdays:['一','二','三','四','五','六','日'], addNote:'添加笔记', addReminder:'添加提醒',
-    note:'笔记', reminder:'提醒', notePlaceholder:'在这里输入...', reminderDate:'提醒日期和时间',
-    cancel:'取消', save:'保存', noNotes:'这一天没有笔记。', studyTime:'学习时间',
-    breakTime:'休息时间', start:'开始', pause:'暂停', studyDone:'学习时段完成！休息一下吧。',
-    breakDone:'休息结束，准备好后继续学习。', paused:'计时器已暂停',
-    focusNow:'开始专注', restNow:'休息时间', readyStudy:'准备学习',
-    takeBreak:'休息一下', resetDone:'计时器已重置', dayMode:'日间模式', nightMode:'夜间模式',
-    noteSaved:'笔记已保存。', reminderSaved:'提醒已保存。', imageTooBig:'图片超过 12 MB。',
-    imageError:'无法保存此图片。', reminderDue:'你有一个待处理的提醒',
-    delete:'删除', savedNote:'笔记', savedReminder:'提醒', sessions:'已完成时段', studyTab:'✎ 学习', breakTab:'☁ 休息',
-    studyDuration:'学习时长', breakDuration:'休息时长', minutes:'分钟',
-    nowPlaying:'正在播放', createPlaylist:'创建列表', selectedPlaylist:'已选列表',
-    deletePlaylist:'删除列表', addVideo:'添加视频', playlistPlaceholder:'粘贴 YouTube 链接以添加...',
-    newPlaylistPlaceholder:'新播放列表名称...', footer:'按照自己的节奏慢慢进步 · Little Focus'
-  }
-};
-function tr(key){ return (I18N[state.language] || I18N.es)[key] || I18N.es[key] || key; }
-
-function localDateKey(date = new Date()) {
-  const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
-  return `${y}-${m}-${d}`;
-}
-function dateFromKey(key){ const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d); }
-function recordStudyDay(){
-  const key = localDateKey();
-  state.activity[key] = (state.activity[key] || 0) + 1;
-  renderStreak(); renderCalendar(); saveState();
-}
-function streakLength(){
-  const today = new Date();
-  let cursor = new Date(today.getFullYear(),today.getMonth(),today.getDate());
-  if (!state.activity[localDateKey(cursor)]) cursor.setDate(cursor.getDate()-1);
-  let count = 0;
-  while(state.activity[localDateKey(cursor)]){
-    count++; cursor.setDate(cursor.getDate()-1);
-  }
-  return count;
-}
-function bestStreakLength(){
-  const dates = Object.keys(state.activity).filter(k => state.activity[k] > 0).sort();
-  let best=0, run=0, previous=null;
-  dates.forEach(key=>{
-    const d=dateFromKey(key);
-    if(previous){ const diff=Math.round((d-previous)/86400000); run=diff===1?run+1:1; }
-    else run=1;
-    best=Math.max(best,run); previous=d;
-  });
-  return best;
-}
-function renderStreak(){
-  const current=streakLength(), best=bestStreakLength();
-  document.getElementById('streakCurrent').textContent=current;
-  document.getElementById('streakLabel').textContent=tr('streakDays');
-  document.getElementById('streakSub').textContent=current?tr('streakActive'):tr('streakStart');
-  document.getElementById('streakBestLabel').textContent=tr('best');
-  document.getElementById('streakBest').textContent=best;
-  document.getElementById('bestDaysLabel').textContent=tr('days');
-}
-let calendarCursor = new Date(new Date().getFullYear(),new Date().getMonth(),1);
-let selectedCalendarDate = localDateKey();
-function renderCalendar(){
-  const grid=document.getElementById('calendarGrid');
-  grid.replaceChildren();
-  const weekdays=tr('weekdays');
-  weekdays.forEach(day=>{const el=document.createElement('div');el.className='calendar-weekday';el.textContent=day;grid.appendChild(el);});
-  const year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
-  const first=new Date(year,month,1), offset=(first.getDay()+6)%7, days=new Date(year,month+1,0).getDate();
-  const monthNames={
-    es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],
-    en:['January','February','March','April','May','June','July','August','September','October','November','December'],
-    zh:['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月']
-  };
-  document.getElementById('calendarMonth').textContent=state.language==='zh'?`${year}年${month+1}月`:`${monthNames[state.language][month]} ${year}`;
-  for(let i=0;i<offset;i++){const blank=document.createElement('div');grid.appendChild(blank);}
-  for(let day=1;day<=days;day++){
-    const date=new Date(year,month,day), key=localDateKey(date), button=document.createElement('button');
-    button.type='button';button.className='calendar-day';button.dataset.date=key;
-    if(key===localDateKey())button.classList.add('today');
-    if(key===selectedCalendarDate)button.classList.add('selected');
-    const studied=!!state.activity[key], hasNotes=state.notes.some(n=>n.date===key);
-    if(studied)button.classList.add('has-study');
-    const number=document.createElement('span');number.className='day-number';number.textContent=day;
-    const markers=document.createElement('span');markers.className='day-markers';
-    if(studied){const dot=document.createElement('i');dot.className='study-dot';markers.appendChild(dot);}
-    if(hasNotes){const dot=document.createElement('i');dot.className='note-dot';markers.appendChild(dot);}
-    button.append(number,markers);
-    button.addEventListener('click',()=>{selectedCalendarDate=key;renderCalendar();renderDayDetails();});
-    button.addEventListener('contextmenu',event=>{
-      event.preventDefault();selectedCalendarDate=key;renderCalendar();renderDayDetails();openDayContext(event.clientX,event.clientY,key);
-    });
-    grid.appendChild(button);
-  }
-  renderDayDetails();
-}
-function prettyDate(key){
-  const d=dateFromKey(key);
-  return new Intl.DateTimeFormat(state.language==='zh'?'zh-CN':state.language==='en'?'en-GB':'es-ES',{day:'numeric',month:'long',year:'numeric'}).format(d);
-}
-function renderDayDetails(){
-  const title=document.getElementById('selectedDayTitle'), holder=document.getElementById('dayNotes');
-  title.textContent=selectedCalendarDate?prettyDate(selectedCalendarDate):tr('selectDay');
-  holder.replaceChildren();
-  const items=state.notes.filter(n=>n.date===selectedCalendarDate);
-  if(!items.length){const p=document.createElement('p');p.textContent=tr('noNotes');holder.appendChild(p);}
-  items.forEach(note=>{
-    const entry=document.createElement('div');entry.className='note-entry';
-    const strong=document.createElement('strong');strong.textContent=note.type==='reminder'?'◷ '+tr('savedReminder'):'✎ '+tr('savedNote');
-    const text=document.createElement('p');text.textContent=note.text;
-    entry.append(strong,text);
-    if(note.time){const small=document.createElement('small');small.textContent=new Date(note.time).toLocaleString(state.language==='zh'?'zh-CN':state.language==='en'?'en-GB':'es-ES');entry.appendChild(small);}
-    const remove=document.createElement('button');remove.type='button';remove.className='text-button danger-button';remove.textContent=tr('delete');
-    remove.addEventListener('click',()=>{state.notes=state.notes.filter(n=>n.id!==note.id);saveState();renderCalendar();});
-    entry.appendChild(remove);holder.appendChild(entry);
-  });
-}
-let contextDate=null, noteType='note';
-const contextMenu=document.getElementById('dayContextMenu');
-function openDayContext(x,y,key){
-  contextDate=key;contextMenu.classList.add('open');
-  contextMenu.style.left=Math.min(x,window.innerWidth-200)+'px';
-  contextMenu.style.top=Math.min(y,window.innerHeight-100)+'px';
-}
-function closeDayContext(){contextMenu.classList.remove('open');}
-document.addEventListener('click',event=>{if(!contextMenu.contains(event.target))closeDayContext();});
-document.getElementById('contextAddNote').addEventListener('click',()=>openNoteDialog('note'));
-document.getElementById('contextAddReminder').addEventListener('click',()=>openNoteDialog('reminder'));
-function openNoteDialog(type){
-  closeDayContext();noteType=type;
-  document.getElementById('noteDialogTitle').textContent=type==='note'?tr('addNote'):tr('addReminder');
-  document.getElementById('noteTextLabel').textContent=tr('note');
-  document.getElementById('noteText').value='';
-  document.getElementById('noteText').placeholder=tr('notePlaceholder');
-  document.getElementById('reminderFields').hidden=type!=='reminder';
-  let defaultTime=dateFromKey(contextDate);defaultTime.setHours(9,0,0,0);
-  if(contextDate===localDateKey()){defaultTime=new Date();defaultTime.setMinutes(defaultTime.getMinutes()+30);}
-  document.getElementById('reminderTime').value=`${localDateKey(defaultTime)}T${String(defaultTime.getHours()).padStart(2,'0')}:${String(defaultTime.getMinutes()).padStart(2,'0')}`;
-  document.getElementById('reminderTimeLabel').textContent=tr('reminderDate');
-  document.getElementById('cancelNote').textContent=tr('cancel');
-  document.getElementById('saveNote').textContent=tr('save');
-  document.getElementById('noteDialog').classList.add('open');
-}
-function closeNoteDialog(){document.getElementById('noteDialog').classList.remove('open');}
-document.getElementById('cancelNote').addEventListener('click',closeNoteDialog);
-document.getElementById('noteDialog').addEventListener('click',e=>{if(e.target.id==='noteDialog')closeNoteDialog();});
-document.getElementById('saveNote').addEventListener('click',async()=>{
-  const text=document.getElementById('noteText').value.trim();
-  if(!text){document.getElementById('noteText').focus();return;}
-  const time=noteType==='reminder'?document.getElementById('reminderTime').value:'';
-  if(noteType==='reminder'&&!time){document.getElementById('reminderTime').focus();return;}
-  state.notes.push({id:'note-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:contextDate,text,type:noteType,time:time?new Date(time).toISOString():''});
-  saveState();closeNoteDialog();renderCalendar();
-  if(noteType==='reminder'&&'Notification'in window&&Notification.permission==='default'){
-    try{await Notification.requestPermission();}catch(e){}
-  }
-  const msg=noteType==='note'?tr('noteSaved'):tr('reminderSaved');
-  statusEl.textContent=msg;
-});
-document.getElementById('calendarPrev').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar();});
-document.getElementById('calendarNext').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar();});
-
-// Recordatorios: se comprueban mientras Little Focus está abierto.
-function checkDueReminders(){
-  const now=Date.now();
-  state.notes.forEach(note=>{
-    if(note.type==='reminder'&&note.time&&!note.notified&&new Date(note.time).getTime()<=now){
-      note.notified=true;saveState();
-      if('Notification'in window&&Notification.permission==='granted'){
-        try{new Notification('Little Focus',{body:note.text});}catch(e){}
-      }else{
-        statusEl.textContent=tr('reminderDue')+': '+note.text;
-      }
-    }
-  });
-}
-checkDueReminders();
-setInterval(checkDueReminders,30000);
-
-// Opciones: idioma y fondos.
-const optionsPanel=document.getElementById('optionsPanel');
-document.getElementById('optionsOpen').addEventListener('click',()=>optionsPanel.classList.add('open'));
-document.getElementById('optionsClose').addEventListener('click',()=>optionsPanel.classList.remove('open'));
-optionsPanel.addEventListener('click',e=>{if(e.target===optionsPanel)optionsPanel.classList.remove('open');});
-document.getElementById('languageSelect').value=state.language;
-document.getElementById('languageSelect').addEventListener('change',e=>{
-  state.language=e.target.value;saveState();applyLanguage();renderTimer();renderStreak();renderCalendar();renderPlaylists();
-});
-const backgroundPalette=['#f3eee5','#e8eee5','#e8edf4','#f3e6e1','#f1e8f4','#f4efda','#202a25','#292b3b'];
-const colorNames={
-  es:['Crema','Verde salvia','Azul suave','Rosa empolvado','Lavanda','Vainilla','Bosque oscuro','Azul noche'],
-  en:['Cream','Sage green','Soft blue','Dusty pink','Lavender','Vanilla','Dark forest','Midnight blue'],
-  zh:['奶油色','鼠尾草绿','浅蓝色','灰粉色','薰衣草色','香草色','深森林绿','午夜蓝']
-};
-function renderBackgroundOptions(){
-  const holder=document.getElementById('backgroundColors');holder.replaceChildren();
-  backgroundPalette.forEach((color,index)=>{
-    const button=document.createElement('button');button.type='button';button.className='color-swatch';button.style.background=color;
-    button.title=colorNames[state.language][index];button.setAttribute('aria-label',button.title);
-    button.setAttribute('aria-pressed',state.backgroundColor===color?'true':'false');
-    button.addEventListener('click',()=>{
-      state.backgroundColor=color;
-      if(customBackgroundUrl){URL.revokeObjectURL(customBackgroundUrl);customBackgroundUrl=null;document.body.style.removeProperty('--little-focus-user-bg');clearBackgroundBlob().catch(()=>{});}
-      applyBackgroundColor();renderBackgroundOptions();saveState();
-    });
-    holder.appendChild(button);
-  });
-}
-function applyBackgroundColor(){
-  document.documentElement.style.setProperty('--bg',state.backgroundColor);
-  document.body.style.backgroundColor=state.backgroundColor;
-  renderBackgroundOptions();
-}
-const DB_NAME='LittleFocusAssets', DB_STORE='backgrounds';
-function openAssetDB(){
-  return new Promise((resolve,reject)=>{
-    const request=indexedDB.open(DB_NAME,1);
-    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(DB_STORE))request.result.createObjectStore(DB_STORE);};
-    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
-  });
-}
-async function storeBackgroundBlob(blob){
-  const db=await openAssetDB();
-  await new Promise((resolve,reject)=>{
-    const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put(blob,'custom-background');
-    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
-  });db.close();
-}
-async function getBackgroundBlob(){
-  const db=await openAssetDB();
-  const blob=await new Promise((resolve,reject)=>{
-    const tx=db.transaction(DB_STORE,'readonly'),req=tx.objectStore(DB_STORE).get('custom-background');
-    req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
-  });db.close();return blob;
-}
-async function clearBackgroundBlob(){
-  const db=await openAssetDB();
-  await new Promise((resolve,reject)=>{
-    const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).delete('custom-background');
-    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
-  });db.close();
-}
-let customBackgroundUrl=null;
-async function restoreCustomBackground(){
-  try{
-    const blob=await getBackgroundBlob();
-    if(blob){customBackgroundUrl=URL.createObjectURL(blob);document.body.style.setProperty('--custom-bg-image',`url("${customBackgroundUrl}")`);document.body.style.backgroundImage=`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`;document.body.style.setProperty('background-image',`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`);document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);document.body.style.setProperty('background-attachment','fixed');document.body.style.setProperty('background-size','cover');document.body.style.setProperty('background-repeat','no-repeat');document.body.style.setProperty('background-position','center');document.body.style.setProperty('background-blend-mode','normal');}
-  }catch(e){console.warn('No se pudo recuperar el fondo personalizado',e);}
-}
-function applyLanguage(){
-  const map={
-    optionsTitle:'options',languageLabel:'language',backgroundLabel:'background',imageLabel:'ownImage',
-    imageHint:'imageHint',removeBackground:'removeImage',calendarTitle:'calendar',legendStudy:'studyLegend',
-    legendNote:'noteLegend',selectedDayTitle:'selectDay',calendarHelp:'calendarHelp',
-    contextAddNote:'addNote',contextAddReminder:'addReminder'
-  };
-  Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.textContent=tr(key);});
-  document.getElementById('optionsOpen').textContent='⚙ '+tr('options');
-  document.getElementById('studyTab').textContent=tr('studyTab');
-  document.getElementById('breakTab').textContent=tr('breakTab');
-  document.querySelectorAll('.setting label')[0].textContent=tr('studyDuration');
-  document.querySelectorAll('.setting label')[1].textContent=tr('breakDuration');
-  document.querySelector('.tag').textContent=tr('nowPlaying');
-  document.getElementById('createPlaylist').textContent=tr('createPlaylist');
-  document.querySelector('label[for="playlistSelect"]').textContent=tr('selectedPlaylist');
-  document.getElementById('deletePlaylist').textContent=tr('deletePlaylist');
-  document.querySelector('#playlistAddForm button').textContent=tr('addVideo');
-  document.getElementById('playlistVideoUrl').placeholder=tr('playlistPlaceholder');
-  document.getElementById('newPlaylistName').placeholder=tr('newPlaylistPlaceholder');
-  document.querySelector('footer').textContent=tr('footer');
-
-  document.getElementById('noteTextLabel').textContent=tr('note');
-  document.getElementById('reminderTimeLabel').textContent=tr('reminderDate');
-  document.getElementById('cancelNote').textContent=tr('cancel');
-  document.getElementById('saveNote').textContent=tr('save');
-  document.getElementById('calendarHelp').textContent=tr('calendarHelp');
-  document.getElementById('calendarPrev').setAttribute('aria-label',state.language==='es'?'Mes anterior':state.language==='en'?'Previous month':'上个月');
-  document.getElementById('calendarNext').setAttribute('aria-label',state.language==='es'?'Mes siguiente':state.language==='en'?'Next month':'下个月');
-  document.querySelector('.brand p').textContent=state.language==='es'?'Tu rinconcito tranquilo para estudiar':state.language==='en'?'Your quiet little place to study':'安静舒适的学习空间';
-  document.querySelector('.video-head h2').textContent=state.language==='es'?'Música para concentrarte':state.language==='en'?'Music for focus':'专注学习音乐';
-  document.getElementById('playlistHeading').textContent=state.language==='es'?'Mis listas':state.language==='en'?'My playlists':'我的播放列表';
-  themeToggle.textContent=(state.theme==='night'?'☀ ':'☾ ')+tr(state.theme==='night'?'dayMode':'nightMode');
-  renderBackgroundOptions();
-}
-document.getElementById('backgroundUpload').addEventListener('change',async e=>{
-  const file=e.target.files&&e.target.files[0];if(!file)return;
-  if(!file.type.startsWith('image/')){e.target.value='';return;}
-  if(file.size>12*1024*1024){alert(tr('imageTooBig'));e.target.value='';return;}
-  try{
-    await storeBackgroundBlob(file);
-    if(customBackgroundUrl)URL.revokeObjectURL(customBackgroundUrl);
-    customBackgroundUrl=URL.createObjectURL(file);
-    document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);
-    
-    document.body.style.setProperty('background-size','cover');document.body.style.setProperty('background-attachment','fixed');
-    document.body.style.setProperty('background-position','center');document.body.style.setProperty('background-repeat','no-repeat');
-    e.target.value='';
-  }catch(err){alert(tr('imageError'));}
-});
-document.getElementById('removeBackground').addEventListener('click',async()=>{
-  try{await clearBackgroundBlob();}catch(e){}
-  if(customBackgroundUrl)URL.revokeObjectURL(customBackgroundUrl);customBackgroundUrl=null;
-  document.body.style.removeProperty('background-image');document.body.style.removeProperty('background-size');
-  document.body.style.removeProperty('background-attachment');document.body.style.removeProperty('background-position');document.body.style.removeProperty('background-repeat');
-  applyBackgroundColor();
-});
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){closeDayContext();closeNoteDialog();optionsPanel.classList.remove('open');}
-});
-
-// Aplicar los ajustes guardados al iniciar.
-applyLanguage();applyBackgroundColor();renderStreak();renderCalendar();restoreCustomBackground();
-
-
-document.body.dataset.theme = state.theme;
+  document.body.dataset.theme = state.theme;
   const night = state.theme === 'night';
   themeToggle.textContent = night ? '☀ ' + tr('dayMode') : '☾ ' + tr('nightMode');
   themeToggle.setAttribute('aria-pressed', night ? 'true' : 'false');
@@ -1033,13 +693,371 @@ document.addEventListener('visibilitychange', () => {
 });
 
 document.body.dataset.theme = state.theme;
-themeToggle.textContent = state.theme === 'night' ? '☀ ' + tr('dayMode') : '☾ ' + tr('nightMode');
-themeToggle.setAttribute('aria-pressed', state.theme === 'night' ? 'true' : 'false');
+
+
+// ===== Rachas, calendario, notas, recordatorios, idiomas y fondos =====
+const I18N = {
+  es: {
+    options:'Opciones', language:'Idioma', background:'Color de fondo', ownImage:'Usar una imagen o GIF propio', openCalendar:'Abrir calendario', closeCalendar:'Cerrar calendario',
+    imageHint:'La imagen se guarda en este dispositivo. Los GIF mantienen su animación. Utiliza archivos de hasta 12 MB.',
+    removeImage:'Quitar imagen', streakDays:'días de racha', streakStart:'Completa un bloque de estudio para empezar',
+    streakActive:'¡Vas por buen camino!', best:'Mejor racha:', days:'días', calendar:'Calendario de estudio',
+    studyLegend:'Día con estudio completado', noteLegend:'Día con nota o recordatorio', selectDay:'Selecciona un día',
+    calendarHelp:'Haz clic derecho sobre un día para añadir una nota o un recordatorio.',
+    weekdays:['L','M','X','J','V','S','D'], addNote:'Añadir nota', addReminder:'Añadir recordatorio',
+    note:'Nota', reminder:'Recordatorio', notePlaceholder:'Escribe aquí...', reminderDate:'Fecha y hora del recordatorio',
+    cancel:'Cancelar', save:'Guardar', noNotes:'No hay notas para este día.', studyTime:'Tiempo de estudio',
+    breakTime:'Tiempo de descanso', start:'Empezar', pause:'Pausar', studyDone:'¡Bloque terminado! Toca descansar un poco.',
+    breakDone:'Descanso terminado. Vuelve al estudio cuando quieras.', paused:'Temporizador en pausa',
+    focusNow:'Tiempo para concentrarte', restNow:'Momento de descansar', readyStudy:'Listo para estudiar',
+    takeBreak:'Tómate un respiro', resetDone:'Temporizador reiniciado', dayMode:'Modo día', nightMode:'Modo noche',
+    noteSaved:'Nota guardada.', reminderSaved:'Recordatorio guardado.', imageTooBig:'La imagen supera los 12 MB.',
+    imageError:'No se ha podido guardar esa imagen.', reminderDue:'Tienes un recordatorio pendiente',
+    delete:'Eliminar', savedNote:'Nota', savedReminder:'Recordatorio', sessions:'bloques completados'
+  },
+  en: {
+    options:'Settings', language:'Language', background:'Background colour', ownImage:'Use your own image or GIF', openCalendar:'Open calendar', closeCalendar:'Close calendar',
+    imageHint:'The image is saved on this device. GIFs keep their animation. Use files up to 12 MB.',
+    removeImage:'Remove image', streakDays:'day streak', streakStart:'Complete a study block to start',
+    streakActive:'You are keeping it going!', best:'Best streak:', days:'days', calendar:'Study calendar',
+    studyLegend:'Completed study day', noteLegend:'Day with a note or reminder', selectDay:'Select a day',
+    calendarHelp:'Right-click a day to add a note or reminder.',
+    weekdays:['M','T','W','T','F','S','S'], addNote:'Add note', addReminder:'Add reminder',
+    note:'Note', reminder:'Reminder', notePlaceholder:'Write here...', reminderDate:'Reminder date and time',
+    cancel:'Cancel', save:'Save', noNotes:'No notes for this day.', studyTime:'Study time',
+    breakTime:'Break time', start:'Start', pause:'Pause', studyDone:'Study block complete! Time for a break.',
+    breakDone:'Break finished. Return to studying when you are ready.', paused:'Timer paused',
+    focusNow:'Time to focus', restNow:'Time to take a break', readyStudy:'Ready to study',
+    takeBreak:'Take a break', resetDone:'Timer reset', dayMode:'Day mode', nightMode:'Night mode',
+    noteSaved:'Note saved.', reminderSaved:'Reminder saved.', imageTooBig:'The image is larger than 12 MB.',
+    imageError:'This image could not be saved.', reminderDue:'You have a reminder due',
+    delete:'Delete', savedNote:'Note', savedReminder:'Reminder', sessions:'completed blocks'
+  },
+  zh: {
+    options:'设置', language:'语言', background:'背景颜色', ownImage:'使用自己的图片或 GIF', openCalendar:'打开日历', closeCalendar:'关闭日历',
+    imageHint:'图片保存在此设备上。GIF 会保持动画效果。请使用不超过 12 MB 的文件。',
+    removeImage:'移除图片', streakDays:'天连续学习', streakStart:'完成一个学习时段即可开始',
+    streakActive:'继续保持！', best:'最长连续记录：', days:'天', calendar:'学习日历',
+    studyLegend:'已完成学习的日期', noteLegend:'有笔记或提醒的日期', selectDay:'请选择一天',
+    calendarHelp:'右键点击日期即可添加笔记或提醒。',
+    weekdays:['一','二','三','四','五','六','日'], addNote:'添加笔记', addReminder:'添加提醒',
+    note:'笔记', reminder:'提醒', notePlaceholder:'在这里输入...', reminderDate:'提醒日期和时间',
+    cancel:'取消', save:'保存', noNotes:'这一天没有笔记。', studyTime:'学习时间',
+    breakTime:'休息时间', start:'开始', pause:'暂停', studyDone:'学习时段完成！休息一下吧。',
+    breakDone:'休息结束，准备好后继续学习。', paused:'计时器已暂停',
+    focusNow:'开始专注', restNow:'休息时间', readyStudy:'准备学习',
+    takeBreak:'休息一下', resetDone:'计时器已重置', dayMode:'日间模式', nightMode:'夜间模式',
+    noteSaved:'笔记已保存。', reminderSaved:'提醒已保存。', imageTooBig:'图片超过 12 MB。',
+    imageError:'无法保存此图片。', reminderDue:'你有一个待处理的提醒',
+    delete:'删除', savedNote:'笔记', savedReminder:'提醒', sessions:'已完成时段'
+  }
+};
+function tr(key){ return (I18N[state.language] || I18N.es)[key] || I18N.es[key] || key; }
+
+function localDateKey(date = new Date()) {
+  const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function dateFromKey(key){ const [y,m,d] = key.split('-').map(Number); return new Date(y,m-1,d); }
+function recordStudyDay(){
+  const key = localDateKey();
+  state.activity[key] = (state.activity[key] || 0) + 1;
+  renderStreak(); renderCalendar(); saveState();
+}
+function streakLength(){
+  const today = new Date();
+  let cursor = new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  if (!state.activity[localDateKey(cursor)]) cursor.setDate(cursor.getDate()-1);
+  let count = 0;
+  while(state.activity[localDateKey(cursor)]){
+    count++; cursor.setDate(cursor.getDate()-1);
+  }
+  return count;
+}
+function bestStreakLength(){
+  const dates = Object.keys(state.activity).filter(k => state.activity[k] > 0).sort();
+  let best=0, run=0, previous=null;
+  dates.forEach(key=>{
+    const d=dateFromKey(key);
+    if(previous){ const diff=Math.round((d-previous)/86400000); run=diff===1?run+1:1; }
+    else run=1;
+    best=Math.max(best,run); previous=d;
+  });
+  return best;
+}
+function renderStreak(){
+  const current=streakLength(), best=bestStreakLength();
+  document.getElementById('streakCurrent').textContent=current;
+  document.getElementById('streakLabel').textContent=tr('streakDays');
+  document.getElementById('streakSub').textContent=current?tr('streakActive'):tr('streakStart');
+  document.getElementById('streakBestLabel').textContent=tr('best');
+  document.getElementById('streakBest').textContent=best;
+  document.getElementById('bestDaysLabel').textContent=tr('days');
+}
+let calendarCursor = new Date(new Date().getFullYear(),new Date().getMonth(),1);
+let selectedCalendarDate = localDateKey();
+function renderCalendar(){
+  const grid=document.getElementById('calendarGrid');
+  grid.replaceChildren();
+  const weekdays=tr('weekdays');
+  weekdays.forEach(day=>{const el=document.createElement('div');el.className='calendar-weekday';el.textContent=day;grid.appendChild(el);});
+  const year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
+  const first=new Date(year,month,1), offset=(first.getDay()+6)%7, days=new Date(year,month+1,0).getDate();
+  const monthNames={
+    es:['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],
+    en:['January','February','March','April','May','June','July','August','September','October','November','December'],
+    zh:['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月']
+  };
+  document.getElementById('calendarMonth').textContent=state.language==='zh'?`${year}年${month+1}月`:`${monthNames[state.language][month]} ${year}`;
+  for(let i=0;i<offset;i++){const blank=document.createElement('div');grid.appendChild(blank);}
+  for(let day=1;day<=days;day++){
+    const date=new Date(year,month,day), key=localDateKey(date), button=document.createElement('button');
+    button.type='button';button.className='calendar-day';button.dataset.date=key;
+    if(key===localDateKey())button.classList.add('today');
+    if(key===selectedCalendarDate)button.classList.add('selected');
+    const studied=!!state.activity[key], hasNotes=state.notes.some(n=>n.date===key);
+    if(studied)button.classList.add('has-study');
+    const number=document.createElement('span');number.className='day-number';number.textContent=day;
+    const markers=document.createElement('span');markers.className='day-markers';
+    if(studied){const dot=document.createElement('i');dot.className='study-dot';markers.appendChild(dot);}
+    if(hasNotes){const dot=document.createElement('i');dot.className='note-dot';markers.appendChild(dot);}
+    button.append(number,markers);
+    button.addEventListener('click',()=>{selectedCalendarDate=key;renderCalendar();renderDayDetails();});
+    button.addEventListener('contextmenu',event=>{
+      event.preventDefault();selectedCalendarDate=key;renderCalendar();renderDayDetails();openDayContext(event.clientX,event.clientY,key);
+    });
+    grid.appendChild(button);
+  }
+  renderDayDetails();
+}
+function prettyDate(key){
+  const d=dateFromKey(key);
+  return new Intl.DateTimeFormat(state.language==='zh'?'zh-CN':state.language==='en'?'en-GB':'es-ES',{day:'numeric',month:'long',year:'numeric'}).format(d);
+}
+function renderDayDetails(){
+  const title=document.getElementById('selectedDayTitle'), holder=document.getElementById('dayNotes');
+  title.textContent=selectedCalendarDate?prettyDate(selectedCalendarDate):tr('selectDay');
+  holder.replaceChildren();
+  const items=state.notes.filter(n=>n.date===selectedCalendarDate);
+  if(!items.length){const p=document.createElement('p');p.textContent=tr('noNotes');holder.appendChild(p);}
+  items.forEach(note=>{
+    const entry=document.createElement('div');entry.className='note-entry';
+    const strong=document.createElement('strong');strong.textContent=note.type==='reminder'?'◷ '+tr('savedReminder'):'✎ '+tr('savedNote');
+    const text=document.createElement('p');text.textContent=note.text;
+    entry.append(strong,text);
+    if(note.time){const small=document.createElement('small');small.textContent=new Date(note.time).toLocaleString(state.language==='zh'?'zh-CN':state.language==='en'?'en-GB':'es-ES');entry.appendChild(small);}
+    const remove=document.createElement('button');remove.type='button';remove.className='text-button danger-button';remove.textContent=tr('delete');
+    remove.addEventListener('click',()=>{state.notes=state.notes.filter(n=>n.id!==note.id);saveState();renderCalendar();});
+    entry.appendChild(remove);holder.appendChild(entry);
+  });
+}
+let contextDate=null, noteType='note';
+const contextMenu=document.getElementById('dayContextMenu');
+function openDayContext(x,y,key){
+  contextDate=key;contextMenu.classList.add('open');
+  contextMenu.style.left=Math.min(x,window.innerWidth-200)+'px';
+  contextMenu.style.top=Math.min(y,window.innerHeight-100)+'px';
+}
+function closeDayContext(){contextMenu.classList.remove('open');}
+document.addEventListener('click',event=>{if(!contextMenu.contains(event.target))closeDayContext();});
+document.getElementById('contextAddNote').addEventListener('click',()=>openNoteDialog('note'));
+document.getElementById('contextAddReminder').addEventListener('click',()=>openNoteDialog('reminder'));
+function openNoteDialog(type){
+  closeDayContext();noteType=type;
+  document.getElementById('noteDialogTitle').textContent=type==='note'?tr('addNote'):tr('addReminder');
+  document.getElementById('noteTextLabel').textContent=tr('note');
+  document.getElementById('noteText').value='';
+  document.getElementById('noteText').placeholder=tr('notePlaceholder');
+  document.getElementById('reminderFields').hidden=type!=='reminder';
+  const defaultTime=new Date();defaultTime.setMinutes(defaultTime.getMinutes()+30);
+  document.getElementById('reminderTime').value=type==='reminder'?`${localDateKey(defaultTime)}T${String(defaultTime.getHours()).padStart(2,'0')}:${String(defaultTime.getMinutes()).padStart(2,'0')}`:`${contextDate}T09:00`;
+  document.getElementById('reminderTimeLabel').textContent=tr('reminderDate');
+  document.getElementById('cancelNote').textContent=tr('cancel');
+  document.getElementById('saveNote').textContent=tr('save');
+  document.getElementById('noteDialog').classList.add('open');
+}
+function closeNoteDialog(){document.getElementById('noteDialog').classList.remove('open');}
+document.getElementById('cancelNote').addEventListener('click',closeNoteDialog);
+document.getElementById('noteDialog').addEventListener('click',e=>{if(e.target.id==='noteDialog')closeNoteDialog();});
+document.getElementById('saveNote').addEventListener('click',async()=>{
+  const text=document.getElementById('noteText').value.trim();
+  if(!text){document.getElementById('noteText').focus();return;}
+  const time=noteType==='reminder'?document.getElementById('reminderTime').value:'';
+  if(noteType==='reminder'&&!time){document.getElementById('reminderTime').focus();return;}
+  state.notes.push({id:'note-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),date:contextDate,text,type:noteType,time:time?new Date(time).toISOString():''});
+  saveState();closeNoteDialog();renderCalendar();
+  if(noteType==='reminder'&&'Notification'in window&&Notification.permission==='default'){
+    try{await Notification.requestPermission();}catch(e){}
+  }
+  const msg=noteType==='note'?tr('noteSaved'):tr('reminderSaved');
+  statusEl.textContent=msg;
+});
+document.getElementById('calendarToggle').addEventListener('click',()=>{
+  const panel=document.getElementById('calendarPanel');
+  const button=document.getElementById('calendarToggle');
+  const opening=panel.hidden;
+  panel.hidden=!opening;
+  button.setAttribute('aria-expanded',opening?'true':'false');
+  const label=opening?tr('closeCalendar'):tr('openCalendar');
+  button.setAttribute('aria-label',label);
+  button.title=tr('calendar');
+  if(opening){
+    panel.classList.remove('calendar-opening');
+    void panel.offsetWidth;
+    panel.classList.add('calendar-opening');
+    renderCalendar();
+    panel.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+});
+document.getElementById('calendarPrev').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()-1);renderCalendar();});
+document.getElementById('calendarNext').addEventListener('click',()=>{calendarCursor.setMonth(calendarCursor.getMonth()+1);renderCalendar();});
+
+// Recordatorios: se comprueban mientras Little Focus está abierto.
+function checkDueReminders(){
+  const now=Date.now();
+  state.notes.forEach(note=>{
+    if(note.type==='reminder'&&note.time&&!note.notified&&new Date(note.time).getTime()<=now){
+      note.notified=true;saveState();
+      if('Notification'in window&&Notification.permission==='granted'){
+        try{new Notification('Little Focus',{body:note.text});}catch(e){}
+      }else{
+        statusEl.textContent=tr('reminderDue')+': '+note.text;
+      }
+    }
+  });
+}
+setInterval(checkDueReminders,30000);
+
+// Opciones: idioma y fondos.
+const optionsPanel=document.getElementById('optionsPanel');
+document.getElementById('optionsOpen').addEventListener('click',()=>optionsPanel.classList.add('open'));
+document.getElementById('optionsClose').addEventListener('click',()=>optionsPanel.classList.remove('open'));
+optionsPanel.addEventListener('click',e=>{if(e.target===optionsPanel)optionsPanel.classList.remove('open');});
+document.getElementById('languageSelect').value=state.language;
+document.getElementById('languageSelect').addEventListener('change',e=>{
+  state.language=e.target.value;saveState();applyLanguage();renderTimer();renderStreak();renderCalendar();renderPlaylists();
+});
+const backgroundPalette=['#f3eee5','#e8eee5','#e8edf4','#f3e6e1','#f1e8f4','#f4efda','#202a25','#292b3b'];
+const colorNames={
+  es:['Crema','Verde salvia','Azul suave','Rosa empolvado','Lavanda','Vainilla','Bosque oscuro','Azul noche'],
+  en:['Cream','Sage green','Soft blue','Dusty pink','Lavender','Vanilla','Dark forest','Midnight blue'],
+  zh:['奶油色','鼠尾草绿','浅蓝色','灰粉色','薰衣草色','香草色','深森林绿','午夜蓝']
+};
+function renderBackgroundOptions(){
+  const holder=document.getElementById('backgroundColors');holder.replaceChildren();
+  backgroundPalette.forEach((color,index)=>{
+    const button=document.createElement('button');button.type='button';button.className='color-swatch';button.style.background=color;
+    button.title=colorNames[state.language][index];button.setAttribute('aria-label',button.title);
+    button.setAttribute('aria-pressed',state.backgroundColor===color?'true':'false');
+    button.addEventListener('click',()=>{state.backgroundColor=color;applyBackgroundColor();renderBackgroundOptions();saveState();});
+    holder.appendChild(button);
+  });
+}
+function applyBackgroundColor(){
+  document.documentElement.style.setProperty('--bg',state.backgroundColor);
+  document.body.style.backgroundColor=state.backgroundColor;
+  renderBackgroundOptions();
+}
+const DB_NAME='LittleFocusAssets', DB_STORE='backgrounds';
+function openAssetDB(){
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open(DB_NAME,1);
+    request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(DB_STORE))request.result.createObjectStore(DB_STORE);};
+    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+  });
+}
+async function storeBackgroundBlob(blob){
+  const db=await openAssetDB();
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put(blob,'custom-background');
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  });db.close();
+}
+async function getBackgroundBlob(){
+  const db=await openAssetDB();
+  const blob=await new Promise((resolve,reject)=>{
+    const tx=db.transaction(DB_STORE,'readonly'),req=tx.objectStore(DB_STORE).get('custom-background');
+    req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+  });db.close();return blob;
+}
+async function clearBackgroundBlob(){
+  const db=await openAssetDB();
+  await new Promise((resolve,reject)=>{
+    const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).delete('custom-background');
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  });db.close();
+}
+let customBackgroundUrl=null;
+async function restoreCustomBackground(){
+  try{
+    const blob=await getBackgroundBlob();
+    if(blob){customBackgroundUrl=URL.createObjectURL(blob);document.body.style.setProperty('--custom-bg-image',`url("${customBackgroundUrl}")`);document.body.style.backgroundImage=`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`;document.body.style.setProperty('background-image',`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`);document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);document.body.style.setProperty('background-attachment','fixed');document.body.style.setProperty('background-size','cover');document.body.style.setProperty('background-repeat','no-repeat');document.body.style.setProperty('background-position','center');document.body.style.setProperty('background-blend-mode','normal');document.body.style.setProperty('background-image',`linear-gradient(#0000,#0000),url("${customBackgroundUrl}")`);}
+  }catch(e){console.warn('No se pudo recuperar el fondo personalizado',e);}
+}
+function applyLanguage(){
+  const map={
+    optionsTitle:'options',languageLabel:'language',backgroundLabel:'background',imageLabel:'ownImage',
+    imageHint:'imageHint',removeBackground:'removeImage',calendarTitle:'calendar',legendStudy:'studyLegend',
+    legendNote:'noteLegend',selectedDayTitle:'selectDay',calendarHelp:'calendarHelp',
+    contextAddNote:'addNote',contextAddReminder:'addReminder'
+  };
+  Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.textContent=tr(key);});
+  document.getElementById('optionsOpen').textContent='⚙ '+tr('options');
+  const calendarIsOpen=!document.getElementById('calendarPanel').hidden;
+  const calendarToggleLabel=calendarIsOpen?tr('closeCalendar'):tr('openCalendar');
+  document.getElementById('calendarToggle').setAttribute('aria-label',calendarToggleLabel);
+  document.getElementById('calendarToggle').title=tr('calendar');
+  document.getElementById('noteTextLabel').textContent=tr('note');
+  document.getElementById('reminderTimeLabel').textContent=tr('reminderDate');
+  document.getElementById('cancelNote').textContent=tr('cancel');
+  document.getElementById('saveNote').textContent=tr('save');
+  document.getElementById('calendarHelp').textContent=tr('calendarHelp');
+  document.getElementById('calendarPrev').setAttribute('aria-label',state.language==='es'?'Mes anterior':state.language==='en'?'Previous month':'上个月');
+  document.getElementById('calendarNext').setAttribute('aria-label',state.language==='es'?'Mes siguiente':state.language==='en'?'Next month':'下个月');
+  document.querySelector('.brand p').textContent=state.language==='es'?'Tu rinconcito tranquilo para estudiar':state.language==='en'?'Your quiet little place to study':'安静舒适的学习空间';
+  document.querySelector('.video-head h2').textContent=state.language==='es'?'Música para concentrarte':state.language==='en'?'Music for focus':'专注学习音乐';
+  document.getElementById('playlistHeading').textContent=state.language==='es'?'Mis listas':state.language==='en'?'My playlists':'我的播放列表';
+  themeToggle.textContent=(state.theme==='night'?'☀ ':'☾ ')+tr(state.theme==='night'?'dayMode':'nightMode');
+  renderBackgroundOptions();
+}
+document.getElementById('backgroundUpload').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  if(!file.type.startsWith('image/')){e.target.value='';return;}
+  if(file.size>12*1024*1024){alert(tr('imageTooBig'));e.target.value='';return;}
+  try{
+    await storeBackgroundBlob(file);
+    if(customBackgroundUrl)URL.revokeObjectURL(customBackgroundUrl);
+    customBackgroundUrl=URL.createObjectURL(file);
+    document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);
+    document.body.style.setProperty('background-image',`linear-gradient(#0000,#0000),url("${customBackgroundUrl}")`);
+    document.body.style.setProperty('background-size','cover');document.body.style.setProperty('background-attachment','fixed');
+    document.body.style.setProperty('background-position','center');document.body.style.setProperty('background-repeat','no-repeat');
+    e.target.value='';
+  }catch(err){alert(tr('imageError'));}
+});
+document.getElementById('removeBackground').addEventListener('click',async()=>{
+  try{await clearBackgroundBlob();}catch(e){}
+  if(customBackgroundUrl)URL.revokeObjectURL(customBackgroundUrl);customBackgroundUrl=null;
+  document.body.style.removeProperty('background-image');document.body.style.removeProperty('background-size');
+  document.body.style.removeProperty('background-attachment');document.body.style.removeProperty('background-position');document.body.style.removeProperty('background-repeat');
+  applyBackgroundColor();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeDayContext();closeNoteDialog();optionsPanel.classList.remove('open');}
+});
+
+// Aplicar los ajustes guardados al iniciar, una vez definidas las traducciones.
+document.body.dataset.theme=state.theme;
+applyLanguage();
+setTheme(state.theme);
+applyBackgroundColor();
 renderTimer();
 renderPlaylists();
 restoreMusic();
+renderStreak();
+renderCalendar();
+restoreCustomBackground();
 saveState();
-
 
 // Instalación como aplicación (PWA)
 let deferredInstallPrompt = null;
