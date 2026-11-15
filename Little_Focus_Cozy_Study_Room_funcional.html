@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Little Focus — Cozy Study Room</title>
+<style>
+:root{--bg:#f3eee5;--paper:#fffaf1;--paper2:#f7f0e5;--ink:#403d35;--muted:#898477;--sage:#82947b;--sage-dark:#586c55;--terracotta:#c88769;--line:#e8dfd1;--shadow:0 18px 45px #6d5a4020}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 10% 0%,#e7e5d6 0,transparent 38%),radial-gradient(ellipse at 100% 30%,#f0dfd0 0,transparent 32%),var(--bg);color:var(--ink);font-family:ui-rounded,"Segoe UI",system-ui,sans-serif}
+main{max-width:1080px;margin:auto;padding:30px 22px 44px}
+header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:24px}
+.brand{display:flex;align-items:center;gap:13px}.logo{width:46px;height:46px;border-radius:16px;background:#dce4d4;display:grid;place-items:center;font-size:24px}
+h1{font-family:Georgia,serif;font-size:1.65rem;font-weight:600;letter-spacing:-.03em;margin:0}
+header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+.pill{background:#e4e9dc;color:var(--sage-dark);padding:7px 12px;border-radius:30px;font-size:.78rem;font-weight:700;letter-spacing:.04em}
+.layout{display:grid;grid-template-columns:minmax(310px,1fr) minmax(300px,.94fr);gap:20px;align-items:stretch}
+.panel{background:var(--paper);border:1px solid #e9e0d3;border-radius:25px;padding:24px;box-shadow:var(--shadow)}
+.mode-switch{display:flex;background:#f1eadf;padding:5px;border-radius:15px;gap:5px}
+.mode-switch button{flex:1;border:0;background:transparent;color:var(--muted);padding:11px;border-radius:11px;font-weight:700;cursor:pointer}
+.mode-switch button.active{background:var(--sage);color:white;box-shadow:0 3px 8px #52634c30}
+.timer-wrap{text-align:center;padding:28px 0 16px}
+.mode-label{color:var(--muted);font-size:.82rem;letter-spacing:.13em;text-transform:uppercase}
+.time{font-family:Georgia,serif;font-size:clamp(4.3rem,10vw,6.2rem);font-variant-numeric:tabular-nums;letter-spacing:-.055em;color:var(--sage-dark);margin:8px 0 4px}
+.status{color:var(--muted);min-height:23px;font-size:.9rem}
+.controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:18px 0 22px}
+button{font:inherit}
+.action{border:0;border-radius:13px;padding:12px 22px;font-weight:750;cursor:pointer;background:var(--sage);color:white;box-shadow:0 4px 10px #52634c22}
+.action.secondary{background:#f1eadf;color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.action:hover,.mode-switch button:hover{filter:brightness(1.04)}
+.settings{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.setting{background:var(--paper2);border:1px solid var(--line);border-radius:16px;padding:14px}
+.setting label{display:block;color:var(--muted);font-size:.82rem;margin-bottom:10px}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stepper button{width:34px;height:34px;border-radius:11px;border:1px solid #d9d9c9;background:#e6ebdf;color:var(--sage-dark);font-size:1.2rem;cursor:pointer}
+.stepper strong{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.hint{font-size:.81rem;color:var(--muted);line-height:1.55;margin:17px 2px 0}
+.video-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:13px}
+h2{font-family:Georgia,serif;font-size:1.25rem;font-weight:600;margin:0}
+.tag{font-size:.73rem;color:var(--sage-dark);background:#e8eddf;padding:6px 10px;border-radius:30px;white-space:nowrap}
+.video-frame{width:100%;aspect-ratio:16/9;border:1px solid #e3d9ca;border-radius:17px;background:#e8e1d5;overflow:hidden;display:grid;place-items:center}
+.video-frame iframe{width:100%;height:100%;border:0}
+.music-caption{display:flex;align-items:center;gap:9px;margin:13px 2px 0;color:var(--muted);font-size:.84rem;line-height:1.45}
+.music-dot{width:9px;height:9px;border-radius:50%;background:var(--sage);flex:none}
+.video-form{display:flex;gap:8px;margin-top:17px}
+.video-form input{min-width:0;flex:1;background:#fffdf8;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:11px 12px;outline:none}
+.video-form input:focus{border-color:var(--sage)}
+.video-form button{border:0;border-radius:12px;background:#e8eddf;color:var(--sage-dark);padding:0 15px;font-weight:700;cursor:pointer}
+.video-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:11px}
+.text-button{border:0;background:transparent;color:var(--sage-dark);font-size:.82rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0}
+.note{color:var(--muted);font-size:.77rem;line-height:1.5;margin:10px 0 0}
+.decor{margin-top:20px;background:#e9e9dd;border-radius:18px;padding:14px 16px;color:#64725e;font-family:Georgia,serif;font-style:italic;font-size:.95rem;text-align:center}
+footer{text-align:center;color:#999181;font-size:.78rem;margin-top:22px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:20px 13px 34px}.panel{padding:19px}header{align-items:flex-start}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand"><div class="logo">☕</div><div><h1>Little Focus</h1><p>Tu rinconcito tranquilo para estudiar</p></div></div>
+  <span class="pill">COZY STUDY ROOM</span>
+</header>
+<div class="layout">
+<section class="panel">
+  <div class="mode-switch">
+    <button id="studyTab" class="active" type="button">✎ Estudio</button>
+    <button id="breakTab" type="button">☁ Descanso</button>
+  </div>
+  <div class="timer-wrap">
+    <div class="mode-label" id="modeLabel">Tiempo de estudio</div>
+    <div class="time" id="display">25:00</div>
+    <div class="status" id="status">Prepara tu espacio y empieza cuando quieras</div>
+  </div>
+  <div class="controls">
+    <button class="action" id="startPause" type="button">Empezar</button>
+    <button class="action secondary" id="reset" type="button">Reiniciar</button>
+  </div>
+  <div class="settings">
+    <div class="setting">
+      <label>Duración de estudio</label>
+      <div class="stepper">
+        <button type="button" data-target="study" data-delta="-1" aria-label="Reducir estudio">−</button>
+        <strong id="studyValue">25 min</strong>
+        <button type="button" data-target="study" data-delta="1" aria-label="Aumentar estudio">+</button>
+      </div>
+    </div>
+    <div class="setting">
+      <label>Duración de descanso</label>
+      <div class="stepper">
+        <button type="button" data-target="break" data-delta="-1" aria-label="Reducir descanso">−</button>
+        <strong id="breakValue">5 min</strong>
+        <button type="button" data-target="break" data-delta="1" aria-label="Aumentar descanso">+</button>
+      </div>
+    </div>
+  </div>
+  <p class="hint">Ajusta los minutos con + y −. Puedes cambiar entre estudio y descanso manualmente; pausar o reiniciar no cambiará tus ajustes.</p>
+  <div class="decor">“Little by little, a little becomes a lot.”</div>
+</section>
+<section class="panel">
+  <div class="video-head"><h2>Música para concentrarte</h2><span class="tag">AHORA SONANDO</span></div>
+  <div class="video-frame" id="videoFrame">
+    <iframe id="musicPlayer" src="https://www.youtube-nocookie.com/embed/X4VbdwhkE10?rel=0" title="Lofi Girl — música para estudiar" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+  </div>
+  <div class="music-caption"><span class="music-dot"></span><span id="musicCaption">Lofi hip hop · música tranquila para estudiar</span></div>
+  <form class="video-form" id="videoForm">
+    <input id="youtubeUrl" type="url" placeholder="Pega aquí tu enlace de YouTube..." aria-label="Enlace de YouTube">
+    <button type="submit">Poner vídeo</button>
+  </form>
+  <div class="video-actions">
+    <span class="note">¿Prefieres otro ambiente?</span>
+    <button class="text-button" id="defaultMusic" type="button">Volver a la música predeterminada</button>
+  </div>
+  <p class="note">La música predeterminada es de Lofi Girl. Pulsa reproducir en el vídeo para escucharla; los navegadores suelen bloquear el sonido automático. También puedes sustituirla por cualquier vídeo de YouTube compatible.</p>
+</section>
+</div>
+<footer>Un espacio sencillo para avanzar a tu ritmo · Little Focus</footer>
+</main>
+<script>
+const DEFAULT_ID='X4VbdwhkE10';
+const durations={study:25,break:5};
+let mode='study',remaining=durations.study*60,interval=null,running=false;
+const display=document.getElementById('display'),statusEl=document.getElementById('status'),startBtn=document.getElementById('startPause');
+const studyTab=document.getElementById('studyTab'),breakTab=document.getElementById('breakTab');
+function render(){
+ const m=Math.floor(remaining/60),s=remaining%60;
+ display.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+ document.title=display.textContent+' — Little Focus';
+ document.getElementById('modeLabel').textContent=mode==='study'?'Tiempo de estudio':'Tiempo de descanso';
+ studyTab.classList.toggle('active',mode==='study');breakTab.classList.toggle('active',mode==='break');
+ document.getElementById('studyValue').textContent=durations.study+' min';document.getElementById('breakValue').textContent=durations.break+' min';
+ startBtn.textContent=running?'Pausar':'Empezar';
+}
+function stop(){if(interval!==null)clearInterval(interval);interval=null;running=false;}
+function tick(){
+ if(remaining>0){remaining--;render();return;}
+ stop();statusEl.textContent=mode==='study'?'¡Bloque terminado! Toca descansar un poco.':'Descanso terminado. Vuelve al estudio cuando quieras.';render();
+ try{if('Notification'in window&&Notification.permission==='granted')new Notification('Little Focus',{body:statusEl.textContent});}catch(e){}
+}
+function toggle(){
+ if(running){stop();statusEl.textContent='Temporizador en pausa';}
+ else{if(remaining<=0)remaining=durations[mode]*60;running=true;statusEl.textContent=mode==='study'?'Tiempo para concentrarte':'Momento de descansar';interval=setInterval(tick,1000);}
+ render();
+}
+function selectMode(next){stop();mode=next;remaining=durations[mode]*60;statusEl.textContent=mode==='study'?'Listo para estudiar':'Tómate un respiro';render();}
+startBtn.addEventListener('click',toggle);
+document.getElementById('reset').addEventListener('click',()=>{stop();remaining=durations[mode]*60;statusEl.textContent='Temporizador reiniciado';render();});
+studyTab.addEventListener('click',()=>selectMode('study'));breakTab.addEventListener('click',()=>selectMode('break'));
+document.querySelectorAll('[data-target]').forEach(btn=>btn.addEventListener('click',()=>{
+ const target=btn.dataset.target;durations[target]=Math.max(1,Math.min(180,durations[target]+Number(btn.dataset.delta)));
+ if(mode===target){remaining=durations[target]*60;statusEl.textContent='Duración actualizada';}render();
+}));
+function getVideoId(url){
+ try{const u=new URL(url);if(u.hostname==='youtu.be')return u.pathname.slice(1).split('/')[0];
+ if(u.hostname.includes('youtube.com')){if(u.pathname==='/watch')return u.searchParams.get('v');const parts=u.pathname.split('/').filter(Boolean);if(['embed','shorts','live'].includes(parts[0]))return parts[1];}}
+ catch(e){}return null;
+}
+function loadVideo(id,caption){
+ const frame=document.getElementById('videoFrame'),iframe=document.createElement('iframe');
+ iframe.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?rel=0';iframe.title=caption;
+ iframe.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';iframe.allowFullscreen=true;
+ frame.replaceChildren(iframe);document.getElementById('musicCaption').textContent=caption;
+}
+document.getElementById('videoForm').addEventListener('submit',e=>{
+ e.preventDefault();const id=getVideoId(document.getElementById('youtubeUrl').value.trim());
+ if(!id||!/^[\w-]{11}$/.test(id)){document.getElementById('musicCaption').textContent='No reconozco ese enlace. Prueba con un enlace normal de YouTube.';return;}
+ loadVideo(id,'Tu vídeo de YouTube');
+});
+document.getElementById('defaultMusic').addEventListener('click',()=>{
+ document.getElementById('youtubeUrl').value='';loadVideo(DEFAULT_ID,'Lofi hip hop · música tranquila para estudiar');
+});
+render();
+</script>
+</body>
+</html>
