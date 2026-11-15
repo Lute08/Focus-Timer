@@ -129,14 +129,14 @@ button:not(:disabled):hover{filter:brightness(.98)}
 <body data-theme="day">
 <main>
 <header>
-  <div class="brand"><div class="logo">☕</div><div><h1>Little Focus</h1><p>Tu rinconcito tranquilo para estudiar</p></div></div>
+  <div class="brand"><div class="logo">☕</div><div><h1>Little Focus</h1><p id="brandSubtitle">Tu rinconcito tranquilo para estudiar</p></div></div>
   <div class="header-actions"><button class="action download-link" id="installApp" type="button" hidden>↓ Instalar app</button><button class="action secondary" id="optionsOpen" type="button">⚙ Opciones</button><button class="action secondary theme-toggle" id="themeToggle" type="button" aria-label="Cambiar entre modo día y noche">☾ Modo noche</button><span class="pill">COZY STUDY ROOM</span></div>
 </header>
 <div class="layout">
 <section class="panel">
   <div class="mode-switch">
-    <button id="studyTab" class="active" type="button">✎ Estudio</button>
-    <button id="breakTab" type="button">☁ Descanso</button>
+    <button id="studyTab" class="active" type="button">✎ <span id="studyTabText">Estudio</span></button>
+    <button id="breakTab" type="button">☁ <span id="breakTabText">Descanso</span></button>
   </div>
   <div class="timer-wrap">
     <div class="mode-label" id="modeLabel">Tiempo de estudio</div>
@@ -149,7 +149,7 @@ button:not(:disabled):hover{filter:brightness(.98)}
   </div>
   <div class="settings">
     <div class="setting">
-      <label>Duración de estudio</label>
+      <label id="studyDurationLabel">Duración de estudio</label>
       <div class="stepper">
         <button type="button" data-target="study" data-delta="-1" aria-label="Reducir estudio">−</button>
         <strong id="studyValue">25 min</strong>
@@ -157,7 +157,7 @@ button:not(:disabled):hover{filter:brightness(.98)}
       </div>
     </div>
     <div class="setting">
-      <label>Duración de descanso</label>
+      <label id="breakDurationLabel">Duración de descanso</label>
       <div class="stepper">
         <button type="button" data-target="break" data-delta="-1" aria-label="Reducir descanso">−</button>
         <strong id="breakValue">5 min</strong>
@@ -168,10 +168,10 @@ button:not(:disabled):hover{filter:brightness(.98)}
   <div class="decor">“Little by little, a little becomes a lot.”</div>
 </section>
 <section class="panel">
-  <div class="video-head"><h2>Música para concentrarte</h2><span class="tag">AHORA SONANDO</span></div>
+  <div class="video-head"><h2>Música para concentrarte</h2><span class="tag" id="musicStatus" aria-live="polite">Vídeo cargado · esperando reproducción</span></div>
   <div class="track-switch"><button class="track-arrow" id="previousTrack" type="button" aria-label="Música anterior" title="Música anterior">‹</button><span id="trackPosition">1 / 4</span><button class="track-arrow" id="nextTrack" type="button" aria-label="Música siguiente" title="Música siguiente">›</button></div>
   <div class="video-frame" id="videoFrame">
-    <iframe id="musicPlayer" src="https://www.youtube-nocookie.com/embed/X4VbdwhkE10?rel=0" title="Lofi Girl — música para estudiar" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+    <iframe id="musicPlayer" src="https://www.youtube-nocookie.com/embed/X4VbdwhkE10?rel=0&enablejsapi=1" title="Lofi Girl — música para estudiar" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
   </div>
   <div class="music-caption"><span class="music-dot"></span><span id="musicCaption">Lofi hip hop · música tranquila para estudiar</span></div>
   <section class="playlist-manager" aria-labelledby="playlistHeading">
@@ -236,6 +236,17 @@ button:not(:disabled):hover{filter:brightness(.98)}
     <div class="option-group"><label for="languageSelect" id="languageLabel">Idioma</label>
       <select id="languageSelect"><option value="es">Español</option><option value="en">English</option><option value="zh">中文</option></select>
     </div>
+    <div class="option-group"><label for="endSoundSelect" id="endSoundLabel">Sonido al terminar el temporizador</label>
+      <select id="endSoundSelect">
+        <option value="chime">Campanillas suaves</option><option value="bell">Campana</option>
+        <option value="digital">Aviso digital</option><option value="nature">Pájaros</option>
+        <option value="none">Sin sonido</option><option value="custom">Mi propio sonido</option>
+      </select>
+      <label for="endSoundUpload" id="customSoundLabel">Subir un sonido propio</label>
+      <input type="file" id="endSoundUpload" accept="audio/*">
+      <p class="option-hint" id="customSoundHint">Puedes elegir un archivo de audio de tu dispositivo.</p>
+      <button class="action secondary" id="previewEndSound" type="button">Probar sonido</button>
+    </div>
     <div class="option-group"><label id="backgroundLabel">Color de fondo</label><div class="color-swatches" id="backgroundColors"></div></div>
     <div class="option-group"><label for="backgroundUpload" id="imageLabel">Usar una imagen o GIF propio</label>
       <input type="file" id="backgroundUpload" accept="image/*">
@@ -262,7 +273,7 @@ button:not(:disabled):hover{filter:brightness(.98)}
   </div>
 </div>
 
-<footer>Un espacio sencillo para avanzar a tu ritmo · Little Focus</footer>
+<footer id="footerText">Un espacio sencillo para avanzar a tu ritmo · Little Focus</footer>
 </main>
 <script>
 const STORAGE_KEY = 'littleFocusAppStateV2';
@@ -291,7 +302,7 @@ function freshState() {
     currentTrackIndex: 0,
     currentVideoId: DEFAULT_TRACKS[0].id,
     currentVideoName: DEFAULT_TRACKS[0].name,
-    language: 'es', backgroundColor: '#f3eee5', activity: {}, notes: []
+    language: 'es', backgroundColor: '#f3eee5', endSound: 'chime', activity: {}, notes: []
   };
 }
 
@@ -380,28 +391,79 @@ function stopTimer() {
   running = false;
 }
 
-function playEndSound() {
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    const now = ctx.currentTime;
-    [0, 0.28, 0.56].forEach((offset, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = [660, 880, 1046][i];
-      gain.gain.setValueAtTime(0.0001, now + offset);
-      gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.24);
+let customEndSoundUrl = null;
+let customEndSoundAudio = null;
+async function restoreCustomEndSound(){
+  try{
+    const db=await openAssetDB();
+    const blob=await new Promise((resolve,reject)=>{
+      const tx=db.transaction(DB_STORE,'readonly'),req=tx.objectStore(DB_STORE).get('custom-end-sound');
+      req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
     });
-    setTimeout(() => ctx.close(), 1200);
-  } catch (e) {}
+    db.close();
+    if(blob){customEndSoundUrl=URL.createObjectURL(blob);customEndSoundAudio=new Audio(customEndSoundUrl);}
+  }catch(e){console.warn('No se pudo recuperar el sonido personalizado',e);}
 }
+function playSynthSound(kind){
+  try{
+    const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+    if(!AudioContextClass)return;
+    const ctx=new AudioContextClass(),now=ctx.currentTime;
+    if(kind==='nature'){
+      // Short, gentle synthesized bird-like notes (no external audio required).
+      [0,0.22,0.48,0.76].forEach((offset,i)=>{
+        const osc=ctx.createOscillator(),gain=ctx.createGain();
+        osc.type='sine';osc.frequency.setValueAtTime([1500,1900,1650,2100][i],now+offset);
+        osc.frequency.exponentialRampToValueAtTime([2100,2300,2050,2400][i],now+offset+0.09);
+        gain.gain.setValueAtTime(0.0001,now+offset);gain.gain.exponentialRampToValueAtTime(0.12,now+offset+0.02);gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.16);
+        osc.connect(gain);gain.connect(ctx.destination);osc.start(now+offset);osc.stop(now+offset+0.18);
+      });
+    }else{
+      const notes=kind==='bell'?[880]:kind==='digital'?[520,520,780]:[660,880,1046];
+      notes.forEach((frequency,i)=>{
+        const offset=i*(kind==='digital'?0.16:0.28),osc=ctx.createOscillator(),gain=ctx.createGain();
+        osc.type=kind==='digital'?'square':'sine';osc.frequency.value=frequency;
+        gain.gain.setValueAtTime(0.0001,now+offset);gain.gain.exponentialRampToValueAtTime(0.14,now+offset+0.02);gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+(kind==='bell'?0.75:0.22));
+        osc.connect(gain);gain.connect(ctx.destination);osc.start(now+offset);osc.stop(now+offset+(kind==='bell'?0.8:0.25));
+      });
+    }
+    setTimeout(()=>ctx.close(),1600);
+  }catch(e){}
+}
+function playEndSound(){
+  const kind=state.endSound||'chime';
+  if(kind==='none')return;
+  if(kind==='custom'){
+    if(customEndSoundAudio){customEndSoundAudio.currentTime=0;customEndSoundAudio.play().catch(()=>{});}
+    else playSynthSound('chime');
+    return;
+  }
+  playSynthSound(kind);
+}
+document.getElementById('endSoundSelect').value=state.endSound||'chime';
+document.getElementById('endSoundSelect').addEventListener('change',e=>{
+  state.endSound=e.target.value;saveState();
+});
+document.getElementById('endSoundUpload').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  if(!file.type.startsWith('audio/')){e.target.value='';return;}
+  try{
+    const db=await openAssetDB();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(DB_STORE,'readwrite');tx.objectStore(DB_STORE).put(file,'custom-end-sound');
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+    });db.close();
+    if(customEndSoundUrl)URL.revokeObjectURL(customEndSoundUrl);
+    customEndSoundUrl=URL.createObjectURL(file);customEndSoundAudio=new Audio(customEndSoundUrl);
+    state.endSound='custom';document.getElementById('endSoundSelect').value='custom';saveState();
+  }catch(err){alert('No se ha podido guardar el archivo de audio.');}
+  e.target.value='';
+});
+document.getElementById('previewEndSound').addEventListener('click',()=>{
+  if((state.endSound||'chime')==='custom'&&customEndSoundAudio){
+    customEndSoundAudio.currentTime=0;customEndSoundAudio.play().catch(()=>alert('No se ha podido reproducir el archivo de audio.'));
+  }else playEndSound();
+});
 
 function tick() {
   if (state.remaining > 0) {
@@ -470,16 +532,46 @@ document.querySelectorAll('[data-target]').forEach(btn => {
   });
 });
 
+let youtubePlayer=null;
+let youtubeApiReady=false;
+let currentMusicState=-1;
+function setMusicStatus(key){const el=document.getElementById('musicStatus');if(el)el.textContent=tr(key);}
+function initYouTubePlayer(){
+  const frame=document.getElementById('musicPlayer');
+  if(!youtubeApiReady||!frame||!window.YT||!window.YT.Player)return;
+  try{
+    if(youtubePlayer&&youtubePlayer.destroy)youtubePlayer.destroy();
+    youtubePlayer=new YT.Player('musicPlayer',{
+      events:{
+        onReady:()=>setMusicStatus('musicReady'),
+        onStateChange:event=>{
+          currentMusicState=event.data;
+          const keys={'-1':'musicReady',0:'musicEnded',1:'musicPlaying',2:'musicPaused',3:'musicBuffering',5:'musicReady'};
+          setMusicStatus(keys[event.data]||'musicReady');
+        },
+        onError:()=>setMusicStatus('musicReady')
+      }
+    });
+  }catch(e){setMusicStatus('musicLoading');}
+}
+window.onYouTubeIframeAPIReady=function(){youtubeApiReady=true;initYouTubePlayer();};
+(function loadYouTubeApi(){
+  if(document.querySelector('script[data-youtube-iframe-api]'))return;
+  const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.async=true;script.dataset.youtubeIframeApi='true';
+  document.head.appendChild(script);
+})();
 function loadVideo(id, caption) {
-  const frame = document.getElementById('videoFrame');
-  const iframe = document.createElement('iframe');
-  iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?rel=0';
-  iframe.title = caption;
-  iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-  iframe.referrerPolicy = 'strict-origin-when-cross-origin';
-  iframe.allowFullscreen = true;
-  frame.replaceChildren(iframe);
-  document.getElementById('musicCaption').textContent = caption;
+  const frame=document.getElementById('videoFrame');
+  const iframe=document.createElement('iframe');
+  iframe.id='musicPlayer';
+  iframe.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(id)+'?rel=0&enablejsapi=1&origin='+encodeURIComponent(location.origin);
+  iframe.title=caption;
+  iframe.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+  iframe.referrerPolicy='strict-origin-when-cross-origin';iframe.allowFullscreen=true;
+  if(youtubePlayer&&youtubePlayer.destroy){try{youtubePlayer.destroy();}catch(e){}youtubePlayer=null;}
+  frame.replaceChildren(iframe);document.getElementById('musicCaption').textContent=caption;
+  currentMusicState=-1;setMusicStatus('musicLoading');
+  if(youtubeApiReady)setTimeout(initYouTubePlayer,0);
 }
 
 function showTrack(index) {
@@ -698,9 +790,9 @@ document.body.dataset.theme = state.theme;
 // ===== Rachas, calendario, notas, recordatorios, idiomas y fondos =====
 const I18N = {
   es: {
-    options:'Opciones', language:'Idioma', background:'Color de fondo', ownImage:'Usar una imagen o GIF propio', openCalendar:'Abrir calendario', closeCalendar:'Cerrar calendario',
+    options:'Opciones', footerText:'Un espacio sencillo para avanzar a tu ritmo · Little Focus', readyPrompt:'Prepara tu espacio y empieza cuando quieras', language:'Idioma', background:'Color de fondo', ownImage:'Usar una imagen o GIF propio', endSoundLabel:'Sonido al terminar el temporizador', customSoundLabel:'Subir un sonido propio', customSoundHint:'Puedes elegir un archivo de audio de tu dispositivo.', previewSound:'Probar sonido', openCalendar:'Abrir calendario', closeCalendar:'Cerrar calendario',
     imageHint:'La imagen se guarda en este dispositivo. Los GIF mantienen su animación. Utiliza archivos de hasta 12 MB.',
-    removeImage:'Quitar imagen', streakDays:'días de racha', streakStart:'Completa un bloque de estudio para empezar',
+    removeImage:'Quitar imagen', soundChime:'Campanillas suaves', soundBell:'Campana', soundDigital:'Aviso digital', soundNature:'Pájaros', soundNone:'Sin sonido', soundCustom:'Mi propio sonido', musicLoading:'Vídeo cargado · esperando reproducción', musicPlaying:'Reproduciendo vídeo', musicPaused:'Vídeo en pausa', musicBuffering:'Cargando vídeo…', musicEnded:'Vídeo terminado', musicReady:'Vídeo listo · pulsa reproducir', noVideo:'No hay ningún vídeo en esta lista', streakDays:'días de racha', streakStart:'Completa un bloque de estudio para empezar',
     streakActive:'¡Vas por buen camino!', best:'Mejor racha:', days:'días', calendar:'Calendario de estudio',
     studyLegend:'Día con estudio completado', noteLegend:'Día con nota o recordatorio', selectDay:'Selecciona un día',
     calendarHelp:'Haz clic derecho sobre un día para añadir una nota o un recordatorio.',
@@ -716,9 +808,9 @@ const I18N = {
     delete:'Eliminar', savedNote:'Nota', savedReminder:'Recordatorio', sessions:'bloques completados'
   },
   en: {
-    options:'Settings', language:'Language', background:'Background colour', ownImage:'Use your own image or GIF', openCalendar:'Open calendar', closeCalendar:'Close calendar',
+    options:'Settings', footerText:'A simple space to make progress at your own pace · Little Focus', readyPrompt:'Set up your space and start whenever you like', language:'Language', background:'Background colour', ownImage:'Use your own image or GIF', endSoundLabel:'Sound when the timer ends', customSoundLabel:'Upload your own sound', customSoundHint:'Choose an audio file from your device.', previewSound:'Preview sound', openCalendar:'Open calendar', closeCalendar:'Close calendar',
     imageHint:'The image is saved on this device. GIFs keep their animation. Use files up to 12 MB.',
-    removeImage:'Remove image', streakDays:'day streak', streakStart:'Complete a study block to start',
+    removeImage:'Remove image', soundChime:'Soft chimes', soundBell:'Bell', soundDigital:'Digital alert', soundNature:'Birdsong', soundNone:'No sound', soundCustom:'My own sound', musicLoading:'Video loaded · waiting to play', musicPlaying:'Video playing', musicPaused:'Video paused', musicBuffering:'Loading video…', musicEnded:'Video ended', musicReady:'Video ready · press play', noVideo:'There are no videos in this playlist', streakDays:'day streak', streakStart:'Complete a study block to start',
     streakActive:'You are keeping it going!', best:'Best streak:', days:'days', calendar:'Study calendar',
     studyLegend:'Completed study day', noteLegend:'Day with a note or reminder', selectDay:'Select a day',
     calendarHelp:'Right-click a day to add a note or reminder.',
@@ -734,9 +826,9 @@ const I18N = {
     delete:'Delete', savedNote:'Note', savedReminder:'Reminder', sessions:'completed blocks'
   },
   zh: {
-    options:'设置', language:'语言', background:'背景颜色', ownImage:'使用自己的图片或 GIF', openCalendar:'打开日历', closeCalendar:'关闭日历',
+    options:'设置', footerText:'一个简单的空间，按照自己的节奏不断进步 · Little Focus', readyPrompt:'准备好你的空间，随时开始', language:'语言', background:'背景颜色', ownImage:'使用自己的图片或 GIF', endSoundLabel:'计时结束时的声音', customSoundLabel:'上传自己的声音', customSoundHint:'从设备中选择一个音频文件。', previewSound:'试听声音', openCalendar:'打开日历', closeCalendar:'关闭日历',
     imageHint:'图片保存在此设备上。GIF 会保持动画效果。请使用不超过 12 MB 的文件。',
-    removeImage:'移除图片', streakDays:'天连续学习', streakStart:'完成一个学习时段即可开始',
+    removeImage:'移除图片', soundChime:'柔和铃声', soundBell:'钟声', soundDigital:'数字提示音', soundNature:'鸟鸣', soundNone:'无声音', soundCustom:'自定义声音', musicLoading:'视频已加载 · 等待播放', musicPlaying:'视频正在播放', musicPaused:'视频已暂停', musicBuffering:'视频加载中…', musicEnded:'视频已结束', musicReady:'视频已就绪 · 点击播放', noVideo:'此播放列表中没有视频', streakDays:'天连续学习', streakStart:'完成一个学习时段即可开始',
     streakActive:'继续保持！', best:'最长连续记录：', days:'天', calendar:'学习日历',
     studyLegend:'已完成学习的日期', noteLegend:'有笔记或提醒的日期', selectDay:'请选择一天',
     calendarHelp:'右键点击日期即可添加笔记或提醒。',
@@ -991,18 +1083,36 @@ let customBackgroundUrl=null;
 async function restoreCustomBackground(){
   try{
     const blob=await getBackgroundBlob();
-    if(blob){customBackgroundUrl=URL.createObjectURL(blob);document.body.style.setProperty('--custom-bg-image',`url("${customBackgroundUrl}")`);document.body.style.backgroundImage=`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`;document.body.style.setProperty('background-image',`radial-gradient(ellipse at 10% 0%,var(--page-glow1) 0,transparent 38%),radial-gradient(ellipse at 100% 30%,var(--page-glow2) 0,transparent 32%),var(--bg)`);document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);document.body.style.setProperty('background-attachment','fixed');document.body.style.setProperty('background-size','cover');document.body.style.setProperty('background-repeat','no-repeat');document.body.style.setProperty('background-position','center');document.body.style.setProperty('background-blend-mode','normal');document.body.style.setProperty('background-image',`linear-gradient(#0000,#0000),url("${customBackgroundUrl}")`);}
+    if(blob){
+      customBackgroundUrl=URL.createObjectURL(blob);
+      document.body.style.setProperty('--little-focus-user-bg',`url("${customBackgroundUrl}")`);
+    } else {
+      document.body.style.removeProperty('--little-focus-user-bg');
+    }
   }catch(e){console.warn('No se pudo recuperar el fondo personalizado',e);}
 }
 function applyLanguage(){
   const map={
-    optionsTitle:'options',languageLabel:'language',backgroundLabel:'background',imageLabel:'ownImage',
+    optionsTitle:'options',languageLabel:'language',backgroundLabel:'background',imageLabel:'ownImage',endSoundLabel:'endSoundLabel',customSoundLabel:'customSoundLabel',customSoundHint:'customSoundHint',
     imageHint:'imageHint',removeBackground:'removeImage',calendarTitle:'calendar',legendStudy:'studyLegend',
     legendNote:'noteLegend',selectedDayTitle:'selectDay',calendarHelp:'calendarHelp',
-    contextAddNote:'addNote',contextAddReminder:'addReminder'
+    contextAddNote:'addNote',contextAddReminder:'addReminder',streakLabel:'streakDays',bestStreakLabel:'best',bestDaysLabel:'days',streakSub:'streakStart'
   };
   Object.entries(map).forEach(([id,key])=>{const el=document.getElementById(id);if(el)el.textContent=tr(key);});
   document.getElementById('optionsOpen').textContent='⚙ '+tr('options');
+  document.getElementById('studyTabText').textContent=state.language==='es'?'Estudio':state.language==='en'?'Study':'学习';
+  document.getElementById('breakTabText').textContent=state.language==='es'?'Descanso':state.language==='en'?'Break':'休息';
+  document.getElementById('studyDurationLabel').textContent=state.language==='es'?'Duración de estudio':state.language==='en'?'Study duration':'学习时长';
+  document.getElementById('breakDurationLabel').textContent=state.language==='es'?'Duración de descanso':state.language==='en'?'Break duration':'休息时长';
+  document.getElementById('endSoundSelect').options[0].text=tr('soundChime');
+  document.getElementById('endSoundSelect').options[1].text=tr('soundBell');
+  document.getElementById('endSoundSelect').options[2].text=tr('soundDigital');
+  document.getElementById('endSoundSelect').options[3].text=tr('soundNature');
+  document.getElementById('endSoundSelect').options[4].text=tr('soundNone');
+  document.getElementById('endSoundSelect').options[5].text=tr('soundCustom');
+  document.getElementById('previewEndSound').textContent=tr('previewSound');
+  const musicKeys={'-1':'musicReady',0:'musicEnded',1:'musicPlaying',2:'musicPaused',3:'musicBuffering',5:'musicReady'};
+  document.getElementById('musicStatus').textContent=tr(musicKeys[currentMusicState]||'musicLoading');
   const calendarIsOpen=!document.getElementById('calendarPanel').hidden;
   const calendarToggleLabel=calendarIsOpen?tr('closeCalendar'):tr('openCalendar');
   document.getElementById('calendarToggle').setAttribute('aria-label',calendarToggleLabel);
@@ -1014,10 +1124,13 @@ function applyLanguage(){
   document.getElementById('calendarHelp').textContent=tr('calendarHelp');
   document.getElementById('calendarPrev').setAttribute('aria-label',state.language==='es'?'Mes anterior':state.language==='en'?'Previous month':'上个月');
   document.getElementById('calendarNext').setAttribute('aria-label',state.language==='es'?'Mes siguiente':state.language==='en'?'Next month':'下个月');
-  document.querySelector('.brand p').textContent=state.language==='es'?'Tu rinconcito tranquilo para estudiar':state.language==='en'?'Your quiet little place to study':'安静舒适的学习空间';
+  document.getElementById('brandSubtitle').textContent=state.language==='es'?'Tu rinconcito tranquilo para estudiar':state.language==='en'?'Your quiet little place to study':'安静舒适的学习空间';
   document.querySelector('.video-head h2').textContent=state.language==='es'?'Música para concentrarte':state.language==='en'?'Music for focus':'专注学习音乐';
   document.getElementById('playlistHeading').textContent=state.language==='es'?'Mis listas':state.language==='en'?'My playlists':'我的播放列表';
   themeToggle.textContent=(state.theme==='night'?'☀ ':'☾ ')+tr(state.theme==='night'?'dayMode':'nightMode');
+  document.getElementById('footerText').textContent=tr('footerText');
+  if(!running && state.remaining===state.durations[state.mode]*60)statusEl.textContent=tr('readyPrompt');
+  renderTimer();
   renderBackgroundOptions();
 }
 document.getElementById('backgroundUpload').addEventListener('change',async e=>{
@@ -1038,8 +1151,10 @@ document.getElementById('backgroundUpload').addEventListener('change',async e=>{
 document.getElementById('removeBackground').addEventListener('click',async()=>{
   try{await clearBackgroundBlob();}catch(e){}
   if(customBackgroundUrl)URL.revokeObjectURL(customBackgroundUrl);customBackgroundUrl=null;
-  document.body.style.removeProperty('background-image');document.body.style.removeProperty('background-size');
-  document.body.style.removeProperty('background-attachment');document.body.style.removeProperty('background-position');document.body.style.removeProperty('background-repeat');
+  document.body.style.removeProperty('--little-focus-user-bg');
+  document.body.style.removeProperty('--custom-bg-image');
+  ['background-image','background-size','background-attachment','background-position','background-repeat','background-blend-mode'].forEach(p=>document.body.style.removeProperty(p));
+  document.getElementById('backgroundUpload').value='';
   applyBackgroundColor();
 });
 document.addEventListener('keydown',e=>{
