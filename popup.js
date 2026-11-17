@@ -23,7 +23,8 @@ function persist(){
   state.timerSessions={study:{...sessions.study},break:{...sessions.break}};
   state.timerRunning=Object.values(sessions).some(x=>x.running);
   state.timerEndAt=sessions[mode].endAt;
-  try{localStorage.setItem(KEY,JSON.stringify(state));}catch{}
+  state._cloudUpdatedAt=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(state));if(window.LittleFocusCloud)LittleFocusCloud.schedule(state);}catch{}
   try{chrome.runtime.sendMessage({type:'sync-timers',sessions:state.timerSessions,sound:state.endSound||'chime'}).catch(()=>{});}catch{}
 }
 function render(){

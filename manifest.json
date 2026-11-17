@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Little Focus",
-  "version": "1.0.0",
-  "description": "Temporizador de estudio y descanso con avisos en segundo plano.",
+  "version": "1.1.0",
+  "description": "Temporizador de estudio con listas de YouTube y sincronización opcional en la nube.",
   "minimum_chrome_version": "109",
   "permissions": [
     "alarms",
@@ -20,5 +20,9 @@
   "icons": {
     "192": "icon-192.png",
     "512": "icon-512.png"
-  }
+  },
+  "host_permissions": [
+    "https://*.supabase.co/*",
+    "https://www.youtube-nocookie.com/*"
+  ]
 }
