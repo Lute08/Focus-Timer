@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Little Focus",
+  "version": "1.0.0",
+  "description": "Temporizador de estudio y descanso con avisos en segundo plano.",
+  "minimum_chrome_version": "109",
+  "permissions": [
+    "alarms",
+    "notifications",
+    "offscreen",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Abrir Little Focus",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "192": "icon-192.png",
+    "512": "icon-512.png"
+  }
+}

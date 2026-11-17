@@ -1,0 +1,21 @@
+LITTLE FOCUS — EXTENSIÓN PARA CHROME
+
+Esta versión abre una ventana pequeña (popup) al pulsar el icono de Little Focus.
+
+INSTALACIÓN
+1. Extrae este ZIP en una carpeta.
+2. Abre chrome://extensions
+3. Activa "Modo de desarrollador".
+4. Si ya tienes una versión anterior de Little Focus, pulsa "Quitar" o desactívala para evitar conflictos.
+5. Pulsa "Cargar descomprimida" y selecciona esta carpeta (la que contiene manifest.json).
+6. Fija Little Focus en la barra de extensiones. Al pulsar su icono aparecerá el temporizador pequeño.
+
+USO
+- Estudio y Descanso tienen contadores independientes.
+- Empezar, pausar y reiniciar afectan al modo seleccionado.
+- Los contadores se guardan y las alarmas se gestionan desde el proceso en segundo plano.
+- "Abrir calendario" abre la página completa directamente en el calendario.
+- "Abrir Little Focus" abre la página completa.
+
+IMPORTANTE
+Chrome debe permanecer abierto para que las alarmas de la extensión puedan ejecutarse. El sistema puede retrasar ligeramente los avisos si el equipo está suspendido o ahorrando energía. Esta extensión se carga localmente; no está publicada en Chrome Web Store.

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Little Focus</title>
+<style>
+:root{color-scheme:light;--bg:#f3eee5;--paper:#fffaf1;--paper2:#f7f0e5;--ink:#403d35;--muted:#898477;--sage:#82947b;--sage-dark:#586c55;--line:#e8dfd1}
+*{box-sizing:border-box}
+body{margin:0;width:340px;min-height:420px;padding:16px;background:radial-gradient(ellipse at 0 0,#e7e5d6,transparent 55%),var(--bg);color:var(--ink);font:14px "Segoe UI",system-ui,sans-serif}
+body.night{--bg:#171b19;--paper:#222925;--paper2:#29322c;--ink:#e8e7dc;--muted:#a5aa9b;--sage:#81977d;--sage-dark:#b8c9ae;--line:#3a453d;background:var(--bg)}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:9px}.logo{width:35px;height:35px;border-radius:12px;background:#e9e9dd;display:grid;place-items:center;font-size:19px}
+h1{font:600 20px Georgia,serif;margin:0}.subtitle{font-size:11px;color:var(--muted);margin-top:2px}
+.icon-btn{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:10px;padding:7px 9px;cursor:pointer}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:19px;padding:15px;box-shadow:0 8px 22px #6d5a4015}
+.tabs{display:flex;gap:5px;background:var(--paper2);padding:4px;border-radius:12px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--muted);padding:9px;border-radius:9px;font-weight:700;cursor:pointer}
+.tabs button.active{background:var(--sage);color:white}
+.mode{margin-top:17px;text-align:center;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em}
+.time{text-align:center;font:64px Georgia,serif;letter-spacing:-3px;color:var(--sage-dark);font-variant-numeric:tabular-nums;margin:4px 0}
+.status{text-align:center;min-height:18px;font-size:11px;color:var(--muted)}
+.controls{display:flex;gap:8px;justify-content:center;margin:14px 0}
+button{font:inherit}
+.primary,.secondary{border:0;border-radius:11px;padding:10px 17px;font-weight:700;cursor:pointer}
+.primary{background:var(--sage);color:white;min-width:132px}
+.secondary{background:var(--paper2);color:var(--ink);border:1px solid var(--line)}
+.durations{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.duration{background:var(--paper2);border:1px solid var(--line);border-radius:12px;padding:9px;text-align:center}
+.duration small{display:block;color:var(--muted);font-size:10px;margin-bottom:7px}
+.stepper{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.stepper button{width:26px;height:26px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--sage-dark);font-size:17px;cursor:pointer}
+.stepper strong{font-size:13px;font-variant-numeric:tabular-nums}
+.bottom{display:flex;gap:8px;margin-top:12px}
+.bottom button{flex:1;font-size:12px;padding:10px 6px}
+.note{font-size:10px;color:var(--muted);text-align:center;margin:12px 2px 0;line-height:1.4}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo">☕</div><div><h1>Little Focus</h1><div class="subtitle">Tu rinconcito para concentrarte</div></div></div>
+  <button class="icon-btn" id="theme" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
+</header>
+<main class="card">
+  <div class="tabs">
+    <button id="study" class="active">✎ Estudio</button>
+    <button id="break">☁ Descanso</button>
+  </div>
+  <div class="mode" id="modeLabel">Tiempo de estudio</div>
+  <div class="time" id="time">25:00</div>
+  <div class="status" id="status">Prepara tu espacio y empieza cuando quieras</div>
+  <div class="controls">
+    <button class="primary" id="start">Empezar</button>
+    <button class="secondary" id="reset">Reiniciar</button>
+  </div>
+  <div class="durations">
+    <div class="duration"><small>Duración de estudio</small><div class="stepper"><button data-mode="study" data-delta="-1">−</button><strong id="studyDuration">25 min</strong><button data-mode="study" data-delta="1">+</button></div></div>
+    <div class="duration"><small>Duración de descanso</small><div class="stepper"><button data-mode="break" data-delta="-1">−</button><strong id="breakDuration">5 min</strong><button data-mode="break" data-delta="1">+</button></div></div>
+  </div>
+</main>
+<div class="bottom">
+  <button class="secondary" id="calendar">▦ Abrir calendario</button>
+  <button class="secondary" id="full">↗ Abrir Little Focus</button>
+</div>
+<p class="note">El temporizador sigue funcionando aunque cierres esta ventanita. Chrome debe permanecer abierto para recibir el aviso.</p>
+<script src="popup.js"></script>
+</body></html>

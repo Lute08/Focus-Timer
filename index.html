@@ -357,12 +357,56 @@ function clampNumber(value, min, max, fallback) {
 }
 
 let state = loadState();
+// Dos sesiones independientes: Estudio y Descanso pueden seguir contando
+// simultáneamente; solo se muestra la sesión de la pestaña seleccionada.
+const timerSessions = (() => {
+  const saved = state.timerSessions || {};
+  const make = mode => {
+    const item = saved[mode] || {};
+    return {
+      remaining: clampNumber(item.remaining, 0, 180*60,
+        mode === state.mode ? state.remaining : state.durations[mode]*60),
+      running: item.running === true,
+      endAt: Number.isFinite(Number(item.endAt)) && item.running === true ? Number(item.endAt) : null
+    };
+  };
+  const sessions = {study:make('study'), break:make('break')};
+  // Migra una cuenta activa guardada por versiones anteriores.
+  if (!state.timerSessions && state.timerRunning && Number(state.timerEndAt) > Date.now()) {
+    sessions[state.mode] = {
+      remaining: Math.max(0, Math.ceil((Number(state.timerEndAt)-Date.now())/1000)),
+      running: true,
+      endAt: Number(state.timerEndAt)
+    };
+  }
+  return sessions;
+})();
 let interval = null;
-let running = false; // A page/app reopened after closing starts paused, preserving the exact remaining time.
+let running = false;
+let endAt = null;
+let alarmAudioContext = null;
+let scheduledAlarmNodes = [];
+let alarmScheduled = false;
+let customEndSoundBuffer = null;
 
 function saveState() {
   try {
+    state.timerSessions = {
+      study: {...timerSessions.study},
+      break: {...timerSessions.break}
+    };
+    state.timerRunning = Object.values(timerSessions).some(session => session.running);
+    state.timerEndAt = timerSessions[state.mode].endAt;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+      try {
+        chrome.runtime.sendMessage({
+          type: 'sync-timers',
+          sessions: state.timerSessions,
+          sound: state.endSound || 'chime'
+        }).catch(()=>{});
+      } catch (e) {}
+    }
   } catch (e) {
     // The app remains usable if browser storage is unavailable.
   }
@@ -372,7 +416,19 @@ function getSelectedPlaylist() {
   return state.playlists.find(p => p.id === state.selectedPlaylistId) || state.playlists[0];
 }
 
+function syncSelectedTimer() {
+  const session = timerSessions[state.mode];
+  state.remaining = session.remaining;
+  running = session.running;
+  endAt = session.endAt;
+}
+function ensureTimerInterval() {
+  const anyRunning = Object.values(timerSessions).some(session => session.running);
+  if (anyRunning && interval === null) interval = setInterval(tick, 250);
+  if (!anyRunning && interval !== null) { clearInterval(interval); interval = null; }
+}
 function renderTimer() {
+  syncSelectedTimer();
   const m = Math.floor(state.remaining / 60);
   const s = state.remaining % 60;
   display.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
@@ -384,11 +440,15 @@ function renderTimer() {
   document.getElementById('breakValue').textContent = state.durations.break + ' min';
   startBtn.textContent = running ? tr('pause') : tr('start');
 }
-
-function stopTimer() {
-  if (interval !== null) clearInterval(interval);
-  interval = null;
-  running = false;
+function stopTimer(options={}) {
+  const session = timerSessions[state.mode];
+  session.running = false;
+  session.endAt = null;
+  if (options.reset !== true) session.remaining = state.remaining;
+  state.timerRunning = Object.values(timerSessions).some(item => item.running);
+  state.timerEndAt = session.endAt;
+  ensureTimerInterval();
+  if(options.cancelAlarm!==false) clearScheduledAlarm();
 }
 
 let customEndSoundUrl = null;
@@ -401,41 +461,90 @@ async function restoreCustomEndSound(){
       req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
     });
     db.close();
-    if(blob){customEndSoundUrl=URL.createObjectURL(blob);customEndSoundAudio=new Audio(customEndSoundUrl);}
+    if(blob){
+      customEndSoundUrl=URL.createObjectURL(blob);
+      customEndSoundAudio=new Audio(customEndSoundUrl);
+      customEndSoundAudio.preload='auto';
+      const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+      if(AudioContextClass){
+        const ctx=getAlarmAudioContext();
+        customEndSoundBuffer=await ctx.decodeAudioData(await blob.arrayBuffer());
+      }
+    }
   }catch(e){console.warn('No se pudo recuperar el sonido personalizado',e);}
 }
-function playSynthSound(kind){
-  try{
+function getAlarmAudioContext(){
+  if(!alarmAudioContext){
     const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-    if(!AudioContextClass)return;
-    const ctx=new AudioContextClass(),now=ctx.currentTime;
-    if(kind==='nature'){
-      // Short, gentle synthesized bird-like notes (no external audio required).
-      [0,0.22,0.48,0.76].forEach((offset,i)=>{
-        const osc=ctx.createOscillator(),gain=ctx.createGain();
-        osc.type='sine';osc.frequency.setValueAtTime([1500,1900,1650,2100][i],now+offset);
-        osc.frequency.exponentialRampToValueAtTime([2100,2300,2050,2400][i],now+offset+0.09);
-        gain.gain.setValueAtTime(0.0001,now+offset);gain.gain.exponentialRampToValueAtTime(0.12,now+offset+0.02);gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+0.16);
-        osc.connect(gain);gain.connect(ctx.destination);osc.start(now+offset);osc.stop(now+offset+0.18);
-      });
-    }else{
-      const notes=kind==='bell'?[880]:kind==='digital'?[520,520,780]:[660,880,1046];
-      notes.forEach((frequency,i)=>{
-        const offset=i*(kind==='digital'?0.16:0.28),osc=ctx.createOscillator(),gain=ctx.createGain();
-        osc.type=kind==='digital'?'square':'sine';osc.frequency.value=frequency;
-        gain.gain.setValueAtTime(0.0001,now+offset);gain.gain.exponentialRampToValueAtTime(0.14,now+offset+0.02);gain.gain.exponentialRampToValueAtTime(0.0001,now+offset+(kind==='bell'?0.75:0.22));
-        osc.connect(gain);gain.connect(ctx.destination);osc.start(now+offset);osc.stop(now+offset+(kind==='bell'?0.8:0.25));
-      });
-    }
-    setTimeout(()=>ctx.close(),1600);
-  }catch(e){}
+    if(AudioContextClass) alarmAudioContext=new AudioContextClass();
+  }
+  return alarmAudioContext;
+}
+function clearScheduledAlarm(){
+  scheduledAlarmNodes.forEach(node=>{try{node.stop();}catch(e){}});
+  scheduledAlarmNodes=[];
+  alarmScheduled=false;
+}
+function scheduleEndSound(){
+  clearScheduledAlarm();
+  const ctx=getAlarmAudioContext();
+  if(!ctx || (state.endSound||'chime')==='none') return;
+  const kind=state.endSound||'chime';
+  const when=ctx.currentTime+Math.max(0.08,state.remaining);
+  const master=ctx.createGain();
+  master.gain.setValueAtTime(0.0001,when);
+  master.gain.linearRampToValueAtTime(0.72,when+0.035);
+  master.connect(ctx.destination);
+  if(kind==='custom' && customEndSoundBuffer){
+    const source=ctx.createBufferSource();source.buffer=customEndSoundBuffer;
+    source.connect(master);source.start(when);scheduledAlarmNodes.push(source);
+    master.gain.setValueAtTime(0.72,when);
+    master.gain.setTargetAtTime(0.0001,when+Math.max(0.5,customEndSoundBuffer.duration-0.25),0.18);
+  }else{
+    const patterns={
+      bell:[{f:880,t:0,d:1.45},{f:1320,t:0.12,d:1.25}],
+      digital:[{f:660,t:0,d:.48},{f:880,t:.55,d:.48},{f:660,t:1.1,d:.48},{f:990,t:1.65,d:.8}],
+      nature:[{f:1500,t:0,d:.22},{f:2050,t:.28,d:.22},{f:1700,t:.58,d:.22},{f:2250,t:.9,d:.3},{f:1850,t:1.3,d:.25}],
+      chime:[{f:660,t:0,d:.55},{f:880,t:.48,d:.65},{f:1046,t:1.02,d:.8},{f:880,t:1.8,d:.75},{f:1046,t:2.5,d:1.1}]
+    };
+    const pattern=patterns[kind]||patterns.chime;
+    pattern.forEach(note=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type=kind==='digital'?'triangle':'sine';osc.frequency.setValueAtTime(note.f,when+note.t);
+      gain.gain.setValueAtTime(0.0001,when+note.t);
+      gain.gain.exponentialRampToValueAtTime(kind==='digital'?0.34:0.42,when+note.t+0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001,when+note.t+note.d);
+      osc.connect(gain);gain.connect(master);osc.start(when+note.t);osc.stop(when+note.t+note.d+0.03);
+      scheduledAlarmNodes.push(osc);
+    });
+    master.gain.setValueAtTime(0.72,when);
+    master.gain.setTargetAtTime(0.0001,when+3.3,0.35);
+  }
+  scheduledAlarmNodes.push(master);
+  alarmScheduled=true;
+}
+function playSynthSound(kind){
+  const ctx=getAlarmAudioContext();if(!ctx)return;
+  ctx.resume().then(()=>{
+    const notes=kind==='nature'?[1500,2050,1700,2250]:kind==='bell'?[880,1320]:kind==='digital'?[660,880,660,990]:[660,880,1046,880,1046];
+    const durations=kind==='bell'?[1.3,1.1]:kind==='digital'?[.42,.42,.42,.7]:kind==='nature'?[.25,.25,.25,.3]:[.5,.6,.75,.7,1];
+    let offset=0;
+    notes.forEach((frequency,i)=>{
+      const osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type=kind==='digital'?'triangle':'sine';osc.frequency.value=frequency;
+      gain.gain.setValueAtTime(0.0001,ctx.currentTime+offset);
+      gain.gain.exponentialRampToValueAtTime(0.42,ctx.currentTime+offset+.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+offset+durations[i]);
+      osc.connect(gain);gain.connect(ctx.destination);osc.start(ctx.currentTime+offset);osc.stop(ctx.currentTime+offset+durations[i]+.03);
+      offset+=kind==='digital'?.52:kind==='nature'?.31:.48;
+    });
+  }).catch(()=>{});
 }
 function playEndSound(){
   const kind=state.endSound||'chime';
   if(kind==='none')return;
-  if(kind==='custom'){
-    if(customEndSoundAudio){customEndSoundAudio.currentTime=0;customEndSoundAudio.play().catch(()=>{});}
-    else playSynthSound('chime');
+  if(kind==='custom'&&customEndSoundAudio){
+    customEndSoundAudio.volume=1;customEndSoundAudio.currentTime=0;customEndSoundAudio.play().catch(()=>{});
     return;
   }
   playSynthSound(kind);
@@ -454,7 +563,8 @@ document.getElementById('endSoundUpload').addEventListener('change',async e=>{
       tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
     });db.close();
     if(customEndSoundUrl)URL.revokeObjectURL(customEndSoundUrl);
-    customEndSoundUrl=URL.createObjectURL(file);customEndSoundAudio=new Audio(customEndSoundUrl);
+    customEndSoundUrl=URL.createObjectURL(file);customEndSoundAudio=new Audio(customEndSoundUrl);customEndSoundAudio.preload='auto';
+    try{const ctx=getAlarmAudioContext();if(ctx)customEndSoundBuffer=await ctx.decodeAudioData(await file.arrayBuffer());}catch(e){customEndSoundBuffer=null;}
     state.endSound='custom';document.getElementById('endSoundSelect').value='custom';saveState();
   }catch(err){alert('No se ha podido guardar el archivo de audio.');}
   e.target.value='';
@@ -466,53 +576,80 @@ document.getElementById('previewEndSound').addEventListener('click',()=>{
 });
 
 function tick() {
-  if (state.remaining > 0) {
-    state.remaining--;
-    renderTimer();
-    saveState();
-    return;
+  const now = Date.now();
+  let completed = [];
+  for (const mode of ['study','break']) {
+    const session = timerSessions[mode];
+    if (!session.running || session.endAt === null) continue;
+    session.remaining = Math.max(0, Math.ceil((session.endAt - now) / 1000));
+    if (session.remaining <= 0) {
+      session.running = false;
+      session.endAt = null;
+      completed.push(mode);
+    }
   }
-  stopTimer();
-  if (state.mode === 'study') recordStudyDay();
-  statusEl.textContent = state.mode === 'study' ? tr('studyDone') : tr('breakDone');
-  playEndSound();
+  if (completed.length) {
+    for (const mode of completed) {
+      if (mode === 'study') recordStudyDay();
+      if (state.mode === mode) statusEl.textContent = mode === 'study' ? tr('studyDone') : tr('breakDone');
+      if (!(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id)) playEndSound();
+      try {
+        if (!(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification('Little Focus', {body: mode === 'study' ? tr('studyDone') : tr('breakDone'), tag:'little-focus-timer-'+mode});
+        }
+      } catch(e) {}
+    }
+  }
+  syncSelectedTimer();
+  ensureTimerInterval();
   renderTimer();
   saveState();
-  try {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Little Focus', { body: statusEl.textContent });
-    }
-  } catch (e) {}
 }
-
-function toggleTimer() {
-  if (running) {
-    stopTimer();
+async function toggleTimer() {
+  const session = timerSessions[state.mode];
+  if (session.running) {
+    session.remaining = Math.max(0, Math.ceil((session.endAt - Date.now()) / 1000));
+    session.running = false;
+    session.endAt = null;
     statusEl.textContent = tr('paused');
   } else {
-    if (state.remaining <= 0) state.remaining = state.durations[state.mode] * 60;
-    running = true;
+    if (session.remaining <= 0) session.remaining = state.durations[state.mode] * 60;
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { Notification.requestPermission().catch(()=>{}); } catch(e) {}
+    }
+    if ((state.endSound || 'chime') === 'custom' && !customEndSoundBuffer) await restoreCustomEndSound();
+    const ctx = getAlarmAudioContext();
+    if (ctx) { try { await ctx.resume(); } catch(e) {} }
+    session.running = true;
+    session.endAt = Date.now() + session.remaining * 1000;
     statusEl.textContent = state.mode === 'study' ? tr('focusNow') : tr('restNow');
-    interval = setInterval(tick, 1000);
+    ensureTimerInterval();
   }
+  syncSelectedTimer();
   renderTimer();
   saveState();
 }
-
 function selectMode(next) {
-  stopTimer();
+  // Cada modo conserva su propio temporizador. Al cambiar de pestaña,
+  // el anterior sigue contando en segundo plano sin superponerse al nuevo.
   state.mode = next;
-  state.remaining = state.durations[state.mode] * 60;
-  statusEl.textContent = state.mode === 'study' ? tr('readyStudy') : tr('takeBreak');
+  const session = timerSessions[next];
+  if (session.running) statusEl.textContent = next === 'study' ? tr('focusNow') : tr('restNow');
+  else statusEl.textContent = next === 'study' ? tr('readyStudy') : tr('takeBreak');
+  syncSelectedTimer();
   renderTimer();
   saveState();
 }
 
 startBtn.addEventListener('click', toggleTimer);
 document.getElementById('reset').addEventListener('click', () => {
-  stopTimer();
-  state.remaining = state.durations[state.mode] * 60;
+  const session = timerSessions[state.mode];
+  session.running = false;
+  session.endAt = null;
+  session.remaining = state.durations[state.mode] * 60;
   statusEl.textContent = tr('resetDone');
+  ensureTimerInterval();
+  syncSelectedTimer();
   renderTimer();
   saveState();
 });
@@ -523,8 +660,10 @@ document.querySelectorAll('[data-target]').forEach(btn => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.target;
     state.durations[target] = Math.max(1, Math.min(180, state.durations[target] + Number(btn.dataset.delta)));
+    const session = timerSessions[target];
+    if (!session.running) session.remaining = state.durations[target] * 60;
     if (state.mode === target) {
-      state.remaining = state.durations[target] * 60;
+      syncSelectedTimer();
       statusEl.textContent = 'Duración actualizada';
     }
     renderTimer();
@@ -776,12 +915,20 @@ function restoreMusic() {
 }
 
 function saveOnExit() {
-  // Preserve the exact remaining time, but reopen paused so it does not jump while the app is closed.
+  const now = Date.now();
+  for (const mode of ['study','break']) {
+    const session = timerSessions[mode];
+    if (session.running && session.endAt !== null) {
+      session.remaining = Math.max(0, Math.ceil((session.endAt - now) / 1000));
+    }
+  }
+  syncSelectedTimer();
   saveState();
 }
 window.addEventListener('pagehide', saveOnExit);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') saveOnExit();
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') saveOnExit();
+  else if(Object.values(timerSessions).some(session=>session.running)) tick();
 });
 
 document.body.dataset.theme = state.theme;
@@ -1166,12 +1313,28 @@ document.body.dataset.theme=state.theme;
 applyLanguage();
 setTheme(state.theme);
 applyBackgroundColor();
+
+// Recuperar el temporizador activo usando una marca de tiempo absoluta.
+// Esto permite que siga avanzando en segundo plano e incluso tras reabrir la PWA.
+for (const mode of ['study','break']) {
+  const session = timerSessions[mode];
+  if (session.running && session.endAt !== null) {
+    session.remaining = Math.max(0, Math.ceil((session.endAt-Date.now())/1000));
+    if (session.remaining <= 0) { session.running = false; session.endAt = null; }
+  }
+}
+syncSelectedTimer();
+if (Object.values(timerSessions).some(session=>session.running)) interval = setInterval(tick,250);
+if (timerSessions[state.mode].running) statusEl.textContent = state.mode === 'study' ? tr('focusNow') : tr('restNow');
 renderTimer();
+saveState();
 renderPlaylists();
 restoreMusic();
 renderStreak();
 renderCalendar();
+if (location.hash === '#calendar') { const cp=document.getElementById('calendarPanel'); const cb=document.getElementById('calendarToggle'); if(cp&&cb){cp.hidden=false;cb.setAttribute('aria-expanded','true');} }
 restoreCustomBackground();
+restoreCustomEndSound();
 saveState();
 
 // Instalación como aplicación (PWA)
