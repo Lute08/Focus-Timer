@@ -1078,29 +1078,43 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
 (function setupCloudUI(){
   const panel=document.getElementById('cloudPanel');
   const status=document.getElementById('cloudStatus');
-  if(!panel||!window.LittleFocusCloud)return;
+  const openButton=document.getElementById('cloudOpen');
+  if(!panel||!status||!openButton||!window.LittleFocusCloud)return;
+  const $=id=>document.getElementById(id);
   const cfg=LittleFocusCloud.config();
-  document.getElementById('cloudUrl').value=cfg.url||'';
-  document.getElementById('cloudKey').value=cfg.anonKey||'';
+  $('cloudUrl').value=cfg.url||'';
+  $('cloudKey').value=cfg.anonKey||'';
   function statusText(){
     const s=LittleFocusCloud.session();
-    status.textContent=LittleFocusCloud.connected?'Conectado'+(s?.user?.email?' como '+s.user.email:'')+'. Guardado automático activado.':(LittleFocusCloud.configured?'Proyecto configurado. Inicia sesión para activar la copia en la nube.':'Sin configurar. Necesitas un proyecto Supabase y ejecutar supabase-setup.sql.');
+    status.textContent=LittleFocusCloud.connected
+      ? 'Conectado'+(s?.user?.email?' como '+s.user.email:'')+'. Guardado automático activado.'
+      : (LittleFocusCloud.configured?'Proyecto configurado. Inicia sesión o crea una cuenta.':'Introduce la URL y la clave pública de Supabase.');
   }
-  document.getElementById('cloudOpen').addEventListener('click',()=>{panel.classList.add('open');statusText();});
-  document.getElementById('cloudClose').addEventListener('click',()=>panel.classList.remove('open'));
+  function openPanel(){panel.classList.add('open');statusText();}
+  function closePanel(){panel.classList.remove('open');}
+  openButton.addEventListener('click',openPanel);
+  $('cloudClose').addEventListener('click',closePanel);
+  panel.addEventListener('click',event=>{if(event.target===panel)closePanel();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel.classList.contains('open'))closePanel();});
   async function connect(create){
-    const button=create?document.getElementById('cloudSignup'):document.getElementById('cloudLogin');
+    const button=create?$('cloudSignup'):$('cloudLogin');
+    const url=$('cloudUrl').value.trim();
+    const key=$('cloudKey').value.trim();
+    const email=$('cloudEmail').value.trim();
+    const password=$('cloudPassword').value;
+    if(!url||!key||!email||!password){status.textContent='Rellena la URL, la clave pública, el correo y la contraseña.';return;}
     try{
-      LittleFocusCloud.saveConfig(document.getElementById('cloudUrl').value,document.getElementById('cloudKey').value);
-      status.textContent=create?'Creando cuenta…':'Conectando y sincronizando…';button.disabled=true;
-      const result=await LittleFocusCloud.connect(document.getElementById('cloudEmail').value.trim(),document.getElementById('cloudPassword').value,create);
+      LittleFocusCloud.saveConfig(url,key);
+      status.textContent=create?'Creando cuenta…':'Conectando y sincronizando…';
+      button.disabled=true;
+      const result=await LittleFocusCloud.connect(email,password,create);
       status.textContent=result.restored?'Datos de la nube restaurados. Actualizando Little Focus…':'Cuenta conectada. Tus datos locales se han guardado en la nube.';
       if(result.restored){setTimeout(()=>location.reload(),500);}else saveState();
-    }catch(error){status.textContent='No se pudo conectar: '+error.message;}
+    }catch(error){status.textContent='No se pudo conectar: '+(error?.message||'Error desconocido');}
     finally{button.disabled=false;}
   }
-  document.getElementById('cloudLogin').addEventListener('click',()=>connect(false));
-  document.getElementById('cloudSignup').addEventListener('click',()=>connect(true));
-  document.getElementById('cloudLogout').addEventListener('click',async()=>{await LittleFocusCloud.signOut();statusText();});
+  $('cloudLogin').addEventListener('click',()=>connect(false));
+  $('cloudSignup').addEventListener('click',()=>connect(true));
+  $('cloudLogout').addEventListener('click',async()=>{try{await LittleFocusCloud.signOut();statusText();}catch(error){status.textContent='No se pudo desconectar: '+error.message;}});
   statusText();
 })();
